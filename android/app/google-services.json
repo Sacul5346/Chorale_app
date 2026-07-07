@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "465365318309",
+    "project_id": "apktkfa",
+    "storage_bucket": "apktkfa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:465365318309:android:56d397662527d4a4ec2b4c",
+        "android_client_info": {
+          "package_name": "com.example.chorale_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBRtoEj9u5x2iQ_6jcSW6oBowKDObxjDOU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
