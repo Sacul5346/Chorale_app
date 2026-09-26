@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'lyrics_view_screen.dart';
 import 'profile_screen.dart';
 
 class SongsScreen extends StatefulWidget {
@@ -115,30 +116,40 @@ class _SongsScreenState extends State<SongsScreen> {
 
                 List<DocumentSnapshot> songs = snapshot.data!.docs;
 
+                // Lecture via data() : un champ absent donne null au lieu
+                // de faire planter l'écran.
+                String champ(DocumentSnapshot doc, String nom) {
+                  final valeur = (doc.data() as Map<String, dynamic>?)?[nom];
+                  return valeur is String ? valeur : '';
+                }
+
                 // Filtrer par région
                 if (_selectedRegion != 'Tous') {
                   songs = songs
-                      .where((doc) => doc['region'] == _selectedRegion)
+                      .where((doc) => champ(doc, 'region') == _selectedRegion)
                       .toList();
                 }
 
                 // Filtrer par recherche
                 if (_searchController.text.isNotEmpty) {
+                  final recherche = _searchController.text.toLowerCase();
                   songs = songs
                       .where((doc) =>
-                          doc['title']
+                          champ(doc, 'title')
                               .toLowerCase()
-                              .contains(_searchController.text.toLowerCase()) ||
-                          doc['artist']
+                              .contains(recherche) ||
+                          champ(doc, 'artist')
                               .toLowerCase()
-                              .contains(_searchController.text.toLowerCase()))
+                              .contains(recherche))
                       .toList();
                 }
 
                 // Grouper par région
                 Map<String, List<DocumentSnapshot>> songsByRegion = {};
                 for (var song in songs) {
-                  final region = song['region'];
+                  final regionBrute = champ(song, 'region');
+                  final region =
+                      regionBrute.isEmpty ? 'Sans région' : regionBrute;
                   if (!songsByRegion.containsKey(region)) {
                     songsByRegion[region] = [];
                   }
@@ -187,12 +198,29 @@ class _SongsScreenState extends State<SongsScreen> {
     String songId,
     Map<String, dynamic> songData,
   ) {
+    final paroles = songData['lyrics'];
+    final aDesParoles = paroles is String && paroles.trim().isNotEmpty;
+    final titre = songData['title'] as String? ?? 'Sans titre';
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ListTile(
-        leading: const Icon(Icons.music_note, color: Colors.deepPurple),
-        title: Text(songData['title'] ?? 'Sans titre'),
-        subtitle: Text(songData['artist'] ?? 'Artiste inconnu'),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => LyricsViewScreen(songId: songId, titre: titre),
+          ),
+        ),
+        leading: Icon(
+          aDesParoles ? Icons.lyrics : Icons.music_note,
+          color: aDesParoles ? Colors.deepPurple : Colors.grey,
+        ),
+        title: Text(titre),
+        subtitle: Text(
+          '${songData['artist'] ?? 'Artiste inconnu'}'
+          '${aDesParoles ? '' : '\nParoles pas encore disponibles'}',
+        ),
+        isThreeLine: !aDesParoles,
         trailing: widget.role == 'chef'
             ? PopupMenuButton(
                 itemBuilder: (context) => [

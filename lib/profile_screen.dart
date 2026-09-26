@@ -94,7 +94,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(switch (e.code) {
-              'wrong-password' => 'Mot de passe actuel incorrect.',
+              'wrong-password' ||
+              'invalid-credential' =>
+                'Mot de passe actuel incorrect.',
+              'requires-recent-login' =>
+                'Par sécurité, déconnectez-vous puis reconnectez-vous '
+                    'avant de changer ce paramètre.',
+              'network-request-failed' => 'Pas de connexion internet.',
               'weak-password' => 'Nouveau mot de passe trop faible.',
               _ => 'Erreur : ${e.message}',
             }),

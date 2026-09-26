@@ -1,5 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Les répétitions sont enregistrées à minuit (l'heure est dans le champ
+/// texte `heure`) : cela permet de repérer deux répétitions le même jour.
+DateTime dateSansHeure(DateTime date) =>
+    DateTime(date.year, date.month, date.day);
+
 class Repetition {
   final String id;
   final String titre;

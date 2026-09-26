@@ -93,32 +93,44 @@ class _GestionUtilisateursScreenState
                     ),
                   ),
                   ...membersInVoix.map((user) {
-                    final role = user['role'] ?? 'membre';
+                    final data = user.data() as Map<String, dynamic>;
+                    final role = data['role'] as String? ?? 'membre';
+                    final nomBrut = data['Nom'];
+                    final nom = nomBrut is String && nomBrut.trim().isNotEmpty
+                        ? nomBrut.trim()
+                        : 'Sans nom';
+                    final photo = data['photoBase64'];
+                    final actif = data['actif'] != false;
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
+                      color: actif ? null : Colors.grey.shade200,
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: _roleColor(role),
-                          backgroundImage:
-                              user.data().toString().contains('photoBase64') &&
-                                      user['photoBase64'] != null
-                                  ? MemoryImage(
-                                      base64Decode(user['photoBase64']))
-                                  : null,
-                          child: !(user
-                                      .data()
-                                      .toString()
-                                      .contains('photoBase64') &&
-                                  user['photoBase64'] != null)
-                              ? Text(
-                                  (user['Nom'] ?? '?')[0].toUpperCase(),
-                                  style: const TextStyle(color: Colors.white),
-                                )
+                          backgroundColor:
+                              actif ? _roleColor(role) : Colors.grey,
+                          backgroundImage: photo is String && photo.isNotEmpty
+                              ? MemoryImage(base64Decode(photo))
                               : null,
+                          child: photo is String && photo.isNotEmpty
+                              ? null
+                              : Text(
+                                  nom[0].toUpperCase(),
+                                  style: const TextStyle(color: Colors.white),
+                                ),
                         ),
-                        title: Text(user['Nom'] ?? 'Sans nom'),
-                        subtitle: Text(user['email'] ?? ''),
+                        title: Text(
+                          nom,
+                          style: actif
+                              ? null
+                              : const TextStyle(
+                                  color: Colors.grey,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
+                        ),
+                        subtitle: Text(actif
+                            ? (data['email'] as String? ?? '')
+                            : 'Compte désactivé'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -128,18 +140,29 @@ class _GestionUtilisateursScreenState
                                 style: const TextStyle(
                                     color: Colors.white, fontSize: 12),
                               ),
-                              backgroundColor: _roleColor(role),
+                              backgroundColor:
+                                  actif ? _roleColor(role) : Colors.grey,
                             ),
                             IconButton(
                               icon: const Icon(Icons.edit, color: Colors.blue),
                               onPressed: () => _showEditDialog(context, user),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline,
-                                  color: Colors.red),
-                              onPressed: () =>
-                                  _confirmDelete(context, user.id, user['Nom']),
-                            ),
+                            if (actif)
+                              IconButton(
+                                tooltip: 'Désactiver',
+                                icon: const Icon(Icons.person_off_outlined,
+                                    color: Colors.red),
+                                onPressed: () =>
+                                    _confirmDesactivation(context, user.id, nom),
+                              )
+                            else
+                              IconButton(
+                                tooltip: 'Réactiver',
+                                icon: const Icon(Icons.person_add_alt_1,
+                                    color: Colors.green),
+                                onPressed: () => _setActif(
+                                    context, user.id, nom, true),
+                              ),
                           ],
                         ),
                       ),
@@ -172,17 +195,39 @@ class _GestionUtilisateursScreenState
     }
   }
 
-  void _confirmDelete(BuildContext context, String userId, String nom) {
+  // On désactive au lieu de supprimer : effacer le compte de connexion
+  // (Firebase Auth) d'une autre personne est impossible depuis l'app.
+  // Un compte désactivé est bloqué par AuthGate (main.dart).
+  Future<void> _setActif(
+      BuildContext context, String userId, String nom, bool actif) async {
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .update({'actif': actif});
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(actif
+              ? '$nom a été réactivé.'
+              : '$nom a été désactivé.'),
+          backgroundColor: actif ? Colors.green : Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _confirmDesactivation(BuildContext context, String userId, String nom) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Supprimer ce membre ?'),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Désactiver ce membre ?'),
         content: Text(
-          'Voulez-vous vraiment supprimer $nom ? Cette action est irréversible.',
+          '$nom ne pourra plus se connecter. Son historique est conservé, '
+          'et vous pourrez le réactiver plus tard.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Annuler'),
           ),
           ElevatedButton(
@@ -190,22 +235,11 @@ class _GestionUtilisateursScreenState
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            onPressed: () async {
-              await FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(userId)
-                  .delete();
-              if (context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('$nom a été supprimé.'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _setActif(context, userId, nom, false);
             },
-            child: const Text('Supprimer'),
+            child: const Text('Désactiver'),
           ),
         ],
       ),
@@ -215,8 +249,13 @@ class _GestionUtilisateursScreenState
   void _showEditDialog(BuildContext context, QueryDocumentSnapshot user) {
     final data = user.data() as Map<String, dynamic>;
     final nomController = TextEditingController(text: data['Nom'] ?? '');
-    String selectedRole = data['role'] ?? 'membre';
-    String selectedVoix = data['voix'] ?? 'soprano';
+    // Une valeur absente de la liste ferait planter le menu déroulant.
+    const roles = ['membre', 'lyrics_manager', 'responsable', 'chef'];
+    const voix = ['soprano', 'alto', 'tenor', 'basse'];
+    String selectedRole =
+        roles.contains(data['role']) ? data['role'] as String : 'membre';
+    String selectedVoix =
+        voix.contains(data['voix']) ? data['voix'] as String : 'soprano';
 
     showDialog(
       context: context,
@@ -243,6 +282,10 @@ class _GestionUtilisateursScreenState
                   ),
                   items: const [
                     DropdownMenuItem(value: 'membre', child: Text('Membre')),
+                    DropdownMenuItem(
+                      value: 'lyrics_manager',
+                      child: Text('Gestionnaire de Lyrics'),
+                    ),
                     DropdownMenuItem(
                       value: 'responsable',
                       child: Text('Responsable'),
@@ -452,12 +495,19 @@ class _GestionUtilisateursScreenState
                         errorMessage = '';
                       });
 
+                      // Une app Firebase secondaire crée le compte sans
+                      // déconnecter le responsable. Elle est toujours
+                      // supprimée à la fin, sinon la création suivante
+                      // échouerait (« duplicate-app »).
+                      FirebaseApp? secondaryApp;
                       try {
-                        // Le responsable sera déconnecté après cette opération
-                        final secondaryApp = await Firebase.initializeApp(
-                          name: 'secondary',
-                          options: Firebase.app().options,
-                        );
+                        secondaryApp = Firebase.apps
+                                .where((app) => app.name == 'secondary')
+                                .firstOrNull ??
+                            await Firebase.initializeApp(
+                              name: 'secondary',
+                              options: Firebase.app().options,
+                            );
 
                         final secondaryAuth =
                             FirebaseAuth.instanceFor(app: secondaryApp);
@@ -479,7 +529,6 @@ class _GestionUtilisateursScreenState
                         });
 
                         await secondaryAuth.signOut();
-                        await secondaryApp.delete();
 
                         if (context.mounted) {
                           Navigator.pop(context);
@@ -499,9 +548,18 @@ class _GestionUtilisateursScreenState
                             'weak-password' =>
                               'Mot de passe trop faible.',
                             'invalid-email' => 'Email invalide.',
+                            'network-request-failed' =>
+                              'Pas de connexion internet.',
                             _ => 'Erreur : ${e.message}',
                           };
                         });
+                      } catch (e) {
+                        setState(() {
+                          isLoading = false;
+                          errorMessage = 'Erreur : $e';
+                        });
+                      } finally {
+                        await secondaryApp?.delete();
                       }
                     },
               child: isLoading

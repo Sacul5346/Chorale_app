@@ -1,0 +1,67 @@
+# Fabrique l'APK signé de l'application sur les serveurs de GitHub.
+# Lancement : onglet « Actions » du dépôt > « Fabriquer l'APK » > « Run workflow ».
+# Le fichier APK se télécharge ensuite en bas de la page du lancement (« Artifacts »).
+#
+# Secrets nécessaires (Settings > Secrets and variables > Actions) :
+#   KEYSTORE_BASE64   : la clé chorale-release.p12 encodée en base64
+#   KEYSTORE_PASSWORD : son mot de passe
+name: Fabriquer l'APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.47.5'
+          cache: true
+
+      # Sans la vraie clé, les téléphones refuseraient la mise à jour :
+      # on arrête plutôt que de fabriquer un APK signé avec une clé de test.
+      - name: Installer la clé de signature
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error::Secrets KEYSTORE_BASE64 / KEYSTORE_PASSWORD manquants."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/chorale-release.p12
+          cat > android/key.properties <<EOF
+          storeFile=chorale-release.p12
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEYSTORE_PASSWORD
+          keyAlias=upload
+          EOF
+          keytool -list -keystore android/app/chorale-release.p12 \
+            -storetype pkcs12 -storepass "$KEYSTORE_PASSWORD" | grep -i upload
+
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build apk --release
+
+      - name: Nommer l'APK avec sa version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | cut -d' ' -f2 | cut -d+ -f1)
+          mv build/app/outputs/flutter-apk/app-release.apk "chorale-$VERSION.apk"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chorale-${{ env.VERSION }}
+          path: chorale-*.apk
+          retention-days: 30

@@ -150,18 +150,18 @@ class RepetitionsScreen extends StatelessWidget {
     );
   }
 
-  void _showGenerateDialog(BuildContext context) {
-    final now = DateTime.now();
-    final endOfMonth = DateTime(now.year, now.month + 1, now.day);
+  /// Jeudis, samedis et dimanches entre [debut] et la fin de son mois.
+  /// Toutes les dates sont à minuit (voir [dateSansHeure]).
+  @visibleForTesting
+  static List<Map<String, dynamic>> repetitionsDuMois(DateTime debut) {
+    final repetitions = <Map<String, dynamic>>[];
+    final finDuMois = DateTime(debut.year, debut.month + 1, 1);
 
-    // Générer toutes les dates
-    List<Map<String, dynamic>> repetitionsToCreate = [];
-
-    DateTime current = now;
-    while (current.isBefore(endOfMonth)) {
-      // Jeudi = 4, Samedi = 6, Dimanche = 7
+    for (var current = dateSansHeure(debut);
+        current.isBefore(finDuMois);
+        current = DateTime(current.year, current.month, current.day + 1)) {
       if (current.weekday == DateTime.thursday) {
-        repetitionsToCreate.add({
+        repetitions.add({
           'date': current,
           'heure': '18h00',
           'jour': 'Jeudi',
@@ -169,7 +169,7 @@ class RepetitionsScreen extends StatelessWidget {
           'isDimanche': false,
         });
       } else if (current.weekday == DateTime.saturday) {
-        repetitionsToCreate.add({
+        repetitions.add({
           'date': current,
           'heure': '14h00',
           'jour': 'Samedi',
@@ -177,7 +177,7 @@ class RepetitionsScreen extends StatelessWidget {
           'isDimanche': false,
         });
       } else if (current.weekday == DateTime.sunday) {
-        repetitionsToCreate.add({
+        repetitions.add({
           'date': current,
           'heure': '14h00',
           'jour': 'Dimanche',
@@ -185,8 +185,15 @@ class RepetitionsScreen extends StatelessWidget {
           'isDimanche': true,
         });
       }
-      current = current.add(const Duration(days: 1));
     }
+    return repetitions;
+  }
+
+  void _showGenerateDialog(BuildContext context) {
+    final now = DateTime.now();
+    // Ce mois-ci : d'aujourd'hui à la fin du mois. Mois prochain : en entier.
+    var moisProchain = false;
+    var repetitionsToCreate = repetitionsDuMois(now);
 
     showDialog(
       context: context,
@@ -198,6 +205,22 @@ class RepetitionsScreen extends StatelessWidget {
             height: 400,
             child: Column(
               children: [
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('Ce mois-ci')),
+                    ButtonSegment(value: true, label: Text('Mois prochain')),
+                  ],
+                  selected: {moisProchain},
+                  onSelectionChanged: (choix) {
+                    setState(() {
+                      moisProchain = choix.first;
+                      repetitionsToCreate = repetitionsDuMois(moisProchain
+                          ? DateTime(now.year, now.month + 1, 1)
+                          : now);
+                    });
+                  },
+                ),
+                const SizedBox(height: 8),
                 const Text(
                   'Cochez les répétitions à créer. Les dimanches nécessitent une confirmation.',
                   style: TextStyle(fontSize: 12, color: Colors.grey),
@@ -299,15 +322,17 @@ class RepetitionsScreen extends StatelessWidget {
                 for (var rep in confirmed) {
                   final date = rep['date'] as DateTime;
 
-                  // Vérifier si la répétition existe déjà
+                  // Vérifier s'il existe déjà une répétition ce jour-là.
+                  // On cherche sur toute la journée : les anciennes
+                  // répétitions créées à la main ont une heure.
                   final existing = await FirebaseFirestore.instance
                       .collection('repetitions')
-                      .where(
-                        'date',
-                        isEqualTo: Timestamp.fromDate(
-                          DateTime(date.year, date.month, date.day),
-                        ),
-                      )
+                      .where('date',
+                          isGreaterThanOrEqualTo: Timestamp.fromDate(date))
+                      .where('date',
+                          isLessThan: Timestamp.fromDate(DateTime(
+                              date.year, date.month, date.day + 1)))
+                      .limit(1)
                       .get();
 
                   if (existing.docs.isEmpty) {
@@ -316,8 +341,7 @@ class RepetitionsScreen extends StatelessWidget {
                         .add({
                       'titre':
                           'Répétition du ${rep['jour']} ${date.day}/${date.month}',
-                      'date': Timestamp.fromDate(
-                          DateTime(date.year, date.month, date.day)),
+                      'date': Timestamp.fromDate(date),
                       'heure': rep['heure'],
                       'lieu': 'Salle de répétition',
                       'raison': '',
@@ -449,7 +473,7 @@ class RepetitionsScreen extends StatelessWidget {
                     .collection('repetitions')
                     .add({
                   'titre': titreController.text.trim(),
-                  'date': Timestamp.fromDate(selectedDate),
+                  'date': Timestamp.fromDate(dateSansHeure(selectedDate)),
                   'heure': heureController.text.trim(),
                   'lieu': lieuController.text.trim(),
                   'raison': raisonController.text.trim(),
@@ -568,7 +592,7 @@ class RepetitionsScreen extends StatelessWidget {
                     .doc(rep.id)
                     .update({
                   'titre': titreController.text.trim(),
-                  'date': Timestamp.fromDate(selectedDate),
+                  'date': Timestamp.fromDate(dateSansHeure(selectedDate)),
                   'heure': heureController.text.trim(),
                   'lieu': lieuController.text.trim(),
                   'raison': raisonController.text.trim(),
@@ -588,9 +612,11 @@ class RepetitionsScreen extends StatelessWidget {
   // SUPPRESSION — choix entre annuler ou supprimer définitivement
   // ----------------------------------------------------------
   void _showDeleteOptions(BuildContext context, Repetition rep) {
+    // Le contexte du dialogue est fermé par pop() : on ouvre le suivant
+    // avec celui de l'écran.
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Que veux-tu faire ?'),
         content: const Text(
           'Tu peux annuler cette répétition (elle reste visible avec un motif) '
@@ -598,13 +624,13 @@ class RepetitionsScreen extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Fermer'),
           ),
           OutlinedButton(
             style: OutlinedButton.styleFrom(foregroundColor: Colors.orange),
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               _showCancelDialog(context, rep);
             },
             child: const Text('Annuler la répétition'),
@@ -615,7 +641,7 @@ class RepetitionsScreen extends StatelessWidget {
               foregroundColor: Colors.white,
             ),
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               _showDeleteConfirm(context, rep);
             },
             child: const Text('Supprimer définitivement'),
@@ -668,6 +694,42 @@ class RepetitionsScreen extends StatelessWidget {
     );
   }
 
+  /// Supprime la répétition avec ses présences, ses conversations d'excuse
+  /// et leurs messages. Firestore n'efface pas les sous-collections tout
+  /// seul, et un lot (WriteBatch) est limité à 500 opérations.
+  static Future<void> _supprimerRepetition(String repetitionId) async {
+    final db = FirebaseFirestore.instance;
+    final aSupprimer = <DocumentReference>[];
+
+    final presences = await db
+        .collection('presences')
+        .where('repetitionId', isEqualTo: repetitionId)
+        .get();
+    aSupprimer.addAll(presences.docs.map((d) => d.reference));
+
+    final conversations = await db
+        .collection('conversations')
+        .where('repetitionId', isEqualTo: repetitionId)
+        .get();
+    for (final conversation in conversations.docs) {
+      final messages = await conversation.reference.collection('messages').get();
+      aSupprimer.addAll(messages.docs.map((d) => d.reference));
+      aSupprimer.add(conversation.reference);
+    }
+
+    // La répétition en dernier : si une étape échoue, elle reste visible
+    // et on peut relancer la suppression.
+    aSupprimer.add(db.collection('repetitions').doc(repetitionId));
+
+    for (var i = 0; i < aSupprimer.length; i += 450) {
+      final batch = db.batch();
+      for (final ref in aSupprimer.skip(i).take(450)) {
+        batch.delete(ref);
+      }
+      await batch.commit();
+    }
+  }
+
   void _showDeleteConfirm(BuildContext context, Repetition rep) {
     showDialog(
       context: context,
@@ -675,7 +737,8 @@ class RepetitionsScreen extends StatelessWidget {
         title: const Text('Suppression définitive'),
         content: Text(
           'Voulez-vous vraiment supprimer "${rep.titre}" ? '
-          'Cette action est irréversible et effacera aussi les présences liées.',
+          'Cette action est irréversible et effacera aussi les présences '
+          'et les messages d\'excuse liés.',
         ),
         actions: [
           TextButton(
@@ -688,10 +751,7 @@ class RepetitionsScreen extends StatelessWidget {
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
-              await FirebaseFirestore.instance
-                  .collection('repetitions')
-                  .doc(rep.id)
-                  .delete();
+              await _supprimerRepetition(rep.id);
               if (context.mounted) Navigator.pop(context);
             },
             child: const Text('Supprimer'),

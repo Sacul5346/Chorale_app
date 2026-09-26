@@ -67,11 +67,30 @@ class AuthGate extends StatelessWidget {
               );
             }
 
-            if (!roleSnapshot.hasData || !roleSnapshot.data!.exists) {
-              return const LoginScreen();
+            if (roleSnapshot.hasError) {
+              return const _CompteBloque(
+                message: 'Impossible de charger votre profil. '
+                    'Vérifiez votre connexion internet.',
+              );
             }
 
-            final role = roleSnapshot.data!['role'];
+            // Connecté mais sans fiche : on ne renvoie pas vers le login
+            // (la personne resterait connectée et bloquée en boucle).
+            final data = roleSnapshot.data?.data() as Map<String, dynamic>?;
+            if (data == null) {
+              return const _CompteBloque(
+                message: 'Compte introuvable. Contactez le responsable '
+                    'de la chorale.',
+              );
+            }
+            if (data['actif'] == false) {
+              return const _CompteBloque(
+                message: 'Votre compte a été désactivé. Contactez le '
+                    'responsable de la chorale.',
+              );
+            }
+
+            final role = data['role'];
 
             switch (role) {
               case 'chef':
@@ -86,6 +105,42 @@ class AuthGate extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+/// Écran affiché quand la personne est connectée mais ne peut pas entrer
+/// (fiche absente ou compte désactivé). Seule action : se déconnecter.
+class _CompteBloque extends StatelessWidget {
+  final String message;
+  const _CompteBloque({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock_outline, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => FirebaseAuth.instance.signOut(),
+                icon: const Icon(Icons.logout),
+                label: const Text('Se déconnecter'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

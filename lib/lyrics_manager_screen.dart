@@ -115,30 +115,40 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
 
                 List<DocumentSnapshot> songs = snapshot.data!.docs;
 
+                // Lecture via data() : un champ absent donne null au lieu
+                // de faire planter l'écran.
+                String champ(DocumentSnapshot doc, String nom) {
+                  final valeur = (doc.data() as Map<String, dynamic>?)?[nom];
+                  return valeur is String ? valeur : '';
+                }
+
                 // Filtrer par région
                 if (_selectedRegion != 'Tous') {
                   songs = songs
-                      .where((doc) => doc['region'] == _selectedRegion)
+                      .where((doc) => champ(doc, 'region') == _selectedRegion)
                       .toList();
                 }
 
                 // Filtrer par recherche
                 if (_searchController.text.isNotEmpty) {
+                  final recherche = _searchController.text.toLowerCase();
                   songs = songs
                       .where((doc) =>
-                          doc['title']
+                          champ(doc, 'title')
                               .toLowerCase()
-                              .contains(_searchController.text.toLowerCase()) ||
-                          doc['artist']
+                              .contains(recherche) ||
+                          champ(doc, 'artist')
                               .toLowerCase()
-                              .contains(_searchController.text.toLowerCase()))
+                              .contains(recherche))
                       .toList();
                 }
 
                 // Grouper par région
                 Map<String, List<DocumentSnapshot>> songsByRegion = {};
                 for (var song in songs) {
-                  final region = song['region'];
+                  final regionBrute = champ(song, 'region');
+                  final region =
+                      regionBrute.isEmpty ? 'Sans région' : regionBrute;
                   if (!songsByRegion.containsKey(region)) {
                     songsByRegion[region] = [];
                   }

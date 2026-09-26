@@ -59,7 +59,9 @@ class MesConversationsScreen extends StatelessWidget {
 
               final repsById = <String, String>{};
               for (var doc in repSnapshot.data!.docs) {
-                repsById[doc.id] = doc['titre'] ?? 'Sans titre';
+                repsById[doc.id] =
+                    (doc.data() as Map<String, dynamic>)['titre'] as String? ??
+                        'Sans titre';
               }
 
               return ListView.builder(
@@ -67,9 +69,10 @@ class MesConversationsScreen extends StatelessWidget {
                 itemCount: conversations.length,
                 itemBuilder: (context, index) {
                   final conv = conversations[index];
-                  final repId = conv['repetitionId'];
+                  final convData = conv.data() as Map<String, dynamic>;
+                  final repId = convData['repetitionId'];
                   final repTitre = repsById[repId] ?? 'Répétition';
-                  final lastMessage = conv['lastMessage'] ?? '';
+                  final lastMessage = convData['lastMessage'] ?? '';
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: 10),

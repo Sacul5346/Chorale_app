@@ -63,7 +63,9 @@ class MessagesScreen extends StatelessWidget {
 
                   final repsById = <String, String>{};
                   for (var doc in repSnapshot.data!.docs) {
-                    repsById[doc.id] = doc['titre'] ?? 'Sans titre';
+                    repsById[doc.id] =
+                    (doc.data() as Map<String, dynamic>)['titre'] as String? ??
+                        'Sans titre';
                   }
 
                   return ListView.builder(
@@ -71,14 +73,18 @@ class MessagesScreen extends StatelessWidget {
                     itemCount: conversations.length,
                     itemBuilder: (context, index) {
                       final conv = conversations[index];
-                      final membreId = conv['membreId'];
-                      final repId = conv['repetitionId'];
+                      final convData = conv.data() as Map<String, dynamic>;
+                      final membreId = convData['membreId'];
+                      final repId = convData['repetitionId'];
                       final userData = usersById[membreId];
-                      final nom = userData?['Nom'] ?? 'Inconnu';
+                      final nomBrut = userData?['Nom'];
+                      final nom = nomBrut is String && nomBrut.trim().isNotEmpty
+                          ? nomBrut.trim()
+                          : 'Inconnu';
                       final photoBase64 = userData?['photoBase64'];
                       final repTitre = repsById[repId] ?? 'Répétition';
-                      final lastMessage = conv['lastMessage'] ?? '';
-                      final unread = conv['unreadByResponsable'] == true;
+                      final lastMessage = convData['lastMessage'] ?? '';
+                      final unread = convData['unreadByResponsable'] == true;
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 10),

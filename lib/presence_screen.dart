@@ -117,13 +117,87 @@ class PresenceScreen extends StatelessWidget {
 }
 
 // ----------------------------------------------------------
+// Présence : deux informations séparées dans chaque document
+//  - `intention` : ce que le membre annonce (present | absent | retard)
+//  - `statut`    : ce que le responsable constate (present_heure, ...)
+// ----------------------------------------------------------
+const _intentions = ['present', 'absent', 'retard'];
+
+/// Intention annoncée par le membre. Les anciens documents la stockaient
+/// dans `statut` : on la relit à cet endroit si besoin.
+String _intentionOf(Map<String, dynamic> data) {
+  final intention = data['intention'];
+  if (intention is String) return intention;
+  final ancien = data['statut'];
+  return _intentions.contains(ancien) ? ancien as String : '';
+}
+
+/// Présence constatée par le responsable (vide si pas encore marquée).
+String _statutOf(Map<String, dynamic> data) {
+  final statut = data['statut'];
+  return statut is String && !_intentions.contains(statut) ? statut : '';
+}
+
+String _intentionLabel(String intention) {
+  switch (intention) {
+    case 'present':
+      return 'Je viens ✅';
+    case 'absent':
+      return 'Je ne viens pas ❌';
+    case 'retard':
+      return 'Je serai en retard ⏳';
+    default:
+      return 'Pas encore répondu';
+  }
+}
+
+String _statusLabel(String statut) {
+  switch (statut) {
+    case 'present_heure':
+      return 'Présent à l\'heure ✅';
+    case 'present_retard':
+      return 'Présent en retard ⏳';
+    case 'present_retard_excuse':
+      return 'Présent en retard (excuse) ⏳📝';
+    case 'present_retard_sans_excuse':
+      return 'Présent en retard (sans excuse) ⏳❌';
+    case 'absent_excuse':
+      return 'Absent avec excuse 📝';
+    case 'absent_sans_excuse':
+      return 'Absent sans excuse ❌';
+    default:
+      return 'Pas encore marqué';
+  }
+}
+
+Color _statusColor(String statut) {
+  switch (statut) {
+    case 'present_heure':
+      return Colors.green;
+    case 'present_retard':
+    case 'present_retard_excuse':
+      return Colors.orange;
+    case 'present_retard_sans_excuse':
+      return Colors.orange.shade900;
+    case 'absent_excuse':
+      return Colors.red;
+    case 'absent_sans_excuse':
+      return Colors.red.shade900;
+    default:
+      return Colors.grey;
+  }
+}
+
+// ----------------------------------------------------------
 // Carte "Ma présence" — pour le membre connecté
 // ----------------------------------------------------------
 class _MyPresenceCard extends StatelessWidget {
   final String repetitionId;
   const _MyPresenceCard({required this.repetitionId});
 
-  Future<void> _setStatus(String statut) async {
+  /// Le membre n'écrit que son intention : il ne touche jamais au `statut`
+  /// validé par le responsable.
+  Future<void> _setIntention(String intention) async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
     final query = await FirebaseFirestore.instance
         .collection('presences')
@@ -133,18 +207,20 @@ class _MyPresenceCard extends StatelessWidget {
         .get();
 
     if (query.docs.isEmpty) {
-      // Créer
       await FirebaseFirestore.instance.collection('presences').add({
         'userId': uid,
         'repetitionId': repetitionId,
-        'statut': statut,
-        'confirmedAt': FieldValue.serverTimestamp(),
+        'intention': intention,
+        'intentionAt': FieldValue.serverTimestamp(),
       });
     } else {
-      // Mettre à jour
-      await query.docs.first.reference.update({
-        'statut': statut,
-        'confirmedAt': FieldValue.serverTimestamp(),
+      final doc = query.docs.first;
+      await doc.reference.update({
+        'intention': intention,
+        'intentionAt': FieldValue.serverTimestamp(),
+        // Ancien format : l'intention était rangée dans `statut`.
+        if (_intentions.contains(doc.data()['statut']))
+          'statut': FieldValue.delete(),
       });
     }
   }
@@ -153,16 +229,19 @@ class _MyPresenceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser!.uid;
 
-    return StreamBuilder<QuerySnapshot>(
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
           .collection('presences')
           .where('repetitionId', isEqualTo: repetitionId)
           .where('userId', isEqualTo: uid)
           .snapshots(),
       builder: (context, snapshot) {
-        String currentStatus = 'indécis';
+        var intention = '';
+        var statut = '';
         if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-          currentStatus = snapshot.data!.docs.first['statut'];
+          final data = snapshot.data!.docs.first.data();
+          intention = _intentionOf(data);
+          statut = _statutOf(data);
         }
 
         return Container(
@@ -171,34 +250,45 @@ class _MyPresenceCard extends StatelessWidget {
           child: Column(
             children: [
               Text(
-                'Ma présence : ${_label(currentStatus)}',
+                'Ma réponse : ${_intentionLabel(intention)}',
                 style: const TextStyle(
                     fontWeight: FontWeight.bold, fontSize: 16),
               ),
+              if (statut.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Constaté par le responsable : ${_statusLabel(statut)}',
+                  style: TextStyle(
+                    color: _statusColor(statut),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   _StatusButton(
-                    label: 'Présent',
+                    label: 'Je viens',
                     color: Colors.green,
                     icon: Icons.check_circle,
-                    selected: currentStatus == 'present',
-                    onTap: () => _setStatus('present'),
+                    selected: intention == 'present',
+                    onTap: () => _setIntention('present'),
                   ),
                   _StatusButton(
                     label: 'Absent',
                     color: Colors.red,
                     icon: Icons.cancel,
-                    selected: currentStatus == 'absent',
-                    onTap: () => _setStatus('absent'),
+                    selected: intention == 'absent',
+                    onTap: () => _setIntention('absent'),
                   ),
                   _StatusButton(
                     label: 'En retard',
                     color: Colors.orange,
                     icon: Icons.access_time,
-                    selected: currentStatus == 'retard',
-                    onTap: () => _setStatus('retard'),
+                    selected: intention == 'retard',
+                    onTap: () => _setIntention('retard'),
                   ),
                 ],
               ),
@@ -208,23 +298,6 @@ class _MyPresenceCard extends StatelessWidget {
       },
     );
   }
-
-  String _label(String statut) {
-    switch (statut) {
-      case 'present_heure':
-        return 'Présent à l\'heure ✅';
-      case 'present_retard':
-        return 'Présent en retard ⏳';
-      case 'absent_excuse':
-        return 'Absent avec excuse 📝';
-      case 'absent_sans_excuse':
-        return 'Absent sans excuse ❌';
-      default:
-        return 'Pas encore confirmé';
-    }
-  }
-
-
 }
 
 class _StatusButton extends StatelessWidget {
@@ -289,9 +362,14 @@ class _AllPresencesTable extends StatefulWidget {
 }
 
 class _AllPresencesTableState extends State<_AllPresencesTable> {
+  // Chargé une seule fois : sinon tous les utilisateurs (photos comprises)
+  // seraient retéléchargés à chaque changement de présence.
+  late final Future<QuerySnapshot<Map<String, dynamic>>> _usersFuture =
+      FirebaseFirestore.instance.collection('users').get();
+
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
           .collection('presences')
           .where('repetitionId', isEqualTo: widget.repetitionId)
@@ -301,26 +379,40 @@ class _AllPresencesTableState extends State<_AllPresencesTable> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final presencesByUser = <String, String>{};
+        final presencesByUser = <String, Map<String, dynamic>>{};
         for (var doc in presenceSnapshot.data!.docs) {
-          presencesByUser[doc['userId']] = doc['statut'];
+          final data = doc.data();
+          final userId = data['userId'];
+          if (userId is String) presencesByUser[userId] = data;
         }
 
-        return FutureBuilder<QuerySnapshot>(
-          future: FirebaseFirestore.instance.collection('users').get(),
+        return FutureBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          future: _usersFuture,
           builder: (context, userSnapshot) {
             if (!userSnapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            final users = userSnapshot.data!.docs;
+            // Les comptes désactivés n'apparaissent que s'ils ont déjà
+            // une présence enregistrée pour cette répétition.
+            final users = userSnapshot.data!.docs
+                .where((u) =>
+                    u.data()['actif'] != false ||
+                    presencesByUser.containsKey(u.id))
+                .toList();
 
             return ListView.builder(
               padding: const EdgeInsets.all(12),
               itemCount: users.length,
               itemBuilder: (context, index) {
                 final user = users[index];
-                final statut = presencesByUser[user.id] ?? '';
+                final presence = presencesByUser[user.id] ?? const {};
+                final statut = _statutOf(presence);
+                final intention = _intentionOf(presence);
+                final nomBrut = user.data()['Nom'];
+                final nom = nomBrut is String && nomBrut.trim().isNotEmpty
+                    ? nomBrut.trim()
+                    : 'Sans nom';
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
@@ -335,7 +427,7 @@ class _AllPresencesTableState extends State<_AllPresencesTable> {
                             CircleAvatar(
                               backgroundColor: _statusColor(statut),
                               child: Text(
-                                (user['Nom'] ?? '?')[0].toUpperCase(),
+                                nom[0].toUpperCase(),
                                 style: const TextStyle(color: Colors.white),
                               ),
                             ),
@@ -345,7 +437,7 @@ class _AllPresencesTableState extends State<_AllPresencesTable> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    user['Nom'] ?? 'Sans nom',
+                                    nom,
                                     style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 14),
@@ -365,6 +457,12 @@ class _AllPresencesTableState extends State<_AllPresencesTable> {
                                       style: TextStyle(
                                           color: Colors.grey, fontSize: 12),
                                     ),
+                                  Text(
+                                    'Réponse du membre : '
+                                    '${_intentionLabel(intention)}',
+                                    style: const TextStyle(
+                                        color: Colors.black54, fontSize: 12),
+                                  ),
                                 ],
                               ),
                             ),
@@ -419,7 +517,8 @@ class _AllPresencesTableState extends State<_AllPresencesTable> {
                                         Expanded(
                                           child: _SubButton(
                                             label: 'En retard',
-                                            selected: statut == 'present_retard',
+                                            selected:
+                                                statut.startsWith('present_retard'),
                                             color: Colors.orange,
                                             onTap: () {
                                               showDialog(
@@ -569,47 +668,18 @@ class _AllPresencesTableState extends State<_AllPresencesTable> {
         'confirmedAt': FieldValue.serverTimestamp(),
       });
     } else {
+      final data = query.docs.first.data();
       await query.docs.first.reference.update({
         'statut': statut,
         'valideePar': currentUser,
         'confirmedAt': FieldValue.serverTimestamp(),
+        // Ancien format : on garde l'intention du membre avant de l'écraser.
+        if (data['intention'] == null && _intentionOf(data).isNotEmpty)
+          'intention': _intentionOf(data),
       });
     }
   }
 
-  Color _statusColor(String statut) {
-    switch (statut) {
-      case 'present_heure':
-        return Colors.green;
-      case 'present_retard':
-        return Colors.orange;
-      case 'absent_excuse':
-        return Colors.red;
-      case 'absent_sans_excuse':
-        return Colors.red.shade900;
-      default:
-        return Colors.grey;
-    }
-  }
-
-String _statusLabel(String statut) {
-    switch (statut) {
-      case 'present_heure':
-        return 'Présent à l\'heure ✅';
-      case 'present_retard':
-        return 'Présent en retard ⏳';
-      case 'present_retard_excuse':
-        return 'Présent en retard (excuse) ⏳📝';
-      case 'present_retard_sans_excuse':
-        return 'Présent en retard (sans excuse) ⏳❌';
-      case 'absent_excuse':
-        return 'Absent avec excuse 📝';
-      case 'absent_sans_excuse':
-        return 'Absent sans excuse ❌';
-      default:
-        return 'Pas encore marqué';
-    }
-  }
 }
 
 // Bouton sous-choix

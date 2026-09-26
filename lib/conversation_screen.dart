@@ -133,7 +133,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
                 // Marquer les messages comme lus
                 for (var msg in messages) {
-                  if (msg['senderId'] != currentUid && msg['lu'] == false) {
+                  final msgData = msg.data() as Map<String, dynamic>;
+                  if (msgData['senderId'] != currentUid &&
+                      msgData['lu'] == false) {
                     msg.reference.update({'lu': true});
                   }
                 }
@@ -150,7 +152,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                   padding: const EdgeInsets.all(12),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
-                    final msg = messages[index];
+                    final msg = messages[index].data() as Map<String, dynamic>;
                     final isMe = msg['senderId'] == currentUid;
                     final isResponsable = msg['senderId'] != widget.membreId;
 
