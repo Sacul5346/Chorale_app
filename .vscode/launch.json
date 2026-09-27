@@ -1,0 +1,14 @@
+{
+  // Lancement avec F5 / ▶ Run : lit la clé Google Drive dans cle_drive.json
+  // (fichier local, exclu de Git).
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Chorale (Chrome)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "chrome",
+      "toolArgs": ["--dart-define-from-file=cle_drive.json"]
+    }
+  ]
+}

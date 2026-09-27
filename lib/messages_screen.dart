@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
 import 'conversation_screen.dart';
+import 'theme.dart';
 
 class MessagesScreen extends StatelessWidget {
-  const MessagesScreen({super.key});
+  /// Le chef consulte les excuses sans les marquer comme lues : le badge
+  /// « non lu » reste pour le responsable, qui y répond.
+  final bool marquerLu;
+
+  const MessagesScreen({super.key, this.marquerLu = true});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Messages & Excuses'),
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('Messages & Excuses')),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('conversations')
@@ -33,8 +34,10 @@ class MessagesScreen extends StatelessWidget {
                 children: [
                   Icon(Icons.message_outlined, size: 64, color: Colors.grey),
                   SizedBox(height: 16),
-                  Text('Aucune conversation pour le moment',
-                      style: TextStyle(color: Colors.grey)),
+                  Text(
+                    'Aucune conversation pour le moment',
+                    style: TextStyle(color: Colors.grey),
+                  ),
                 ],
               ),
             );
@@ -64,7 +67,8 @@ class MessagesScreen extends StatelessWidget {
                   final repsById = <String, String>{};
                   for (var doc in repSnapshot.data!.docs) {
                     repsById[doc.id] =
-                    (doc.data() as Map<String, dynamic>)['titre'] as String? ??
+                        (doc.data() as Map<String, dynamic>)['titre']
+                            as String? ??
                         'Sans titre';
                   }
 
@@ -90,7 +94,7 @@ class MessagesScreen extends StatelessWidget {
                         margin: const EdgeInsets.only(bottom: 10),
                         child: ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: Colors.deepPurple.shade100,
+                            backgroundColor: CouleursChorale.lavandeFonce,
                             backgroundImage: photoBase64 != null
                                 ? MemoryImage(base64Decode(photoBase64))
                                 : null,
@@ -98,8 +102,9 @@ class MessagesScreen extends StatelessWidget {
                                 ? Text(
                                     nom[0].toUpperCase(),
                                     style: const TextStyle(
-                                        color: Colors.deepPurple,
-                                        fontWeight: FontWeight.bold),
+                                      color: CouleursChorale.aubergine,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   )
                                 : null,
                           ),
@@ -121,14 +126,22 @@ class MessagesScreen extends StatelessWidget {
                           ),
                           isThreeLine: true,
                           trailing: unread
-                              ? const Icon(Icons.circle,
-                                  color: Colors.orange, size: 12)
-                              : const Icon(Icons.chevron_right,
-                                  color: Colors.grey),
+                              ? const Icon(
+                                  Icons.circle,
+                                  color: Colors.orange,
+                                  size: 12,
+                                )
+                              : const Icon(
+                                  Icons.chevron_right,
+                                  color: Colors.grey,
+                                ),
                           onTap: () async {
                             // Marquer comme lu par le responsable
-                            await conv.reference
-                                .update({'unreadByResponsable': false});
+                            if (marquerLu) {
+                              await conv.reference.update({
+                                'unreadByResponsable': false,
+                              });
+                            }
 
                             if (context.mounted) {
                               Navigator.push(

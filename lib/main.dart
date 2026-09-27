@@ -7,13 +7,16 @@ import 'login_screen.dart';
 import 'chef_screen.dart';
 import 'responsable_screen.dart';
 import 'membre_screen.dart';
-import 'lyrics_manager_screen.dart';
+import 'gestionnaire_paroles_screen.dart';
+import 'rappels.dart';
+import 'theme.dart';
+import 'telechargement_web.dart'
+    if (dart.library.io) 'telechargement_io.dart'
+    as stockage;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
 
@@ -23,13 +26,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Chorale App',
+      title: 'K.T.K.F.A',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
-      ),
+      theme: themeChorale(),
       home: const AuthGate(),
     );
   }
@@ -55,13 +54,16 @@ class AuthGate extends StatelessWidget {
           return const LoginScreen();
         }
 
-        // Connecté → on récupère son rôle pour rediriger
+        // Connecté → on suit sa fiche en continu : une désactivation (ou un
+        // changement de rôle) s'applique tout de suite, même app ouverte.
         final uid = authSnapshot.data!.uid;
-        return FutureBuilder<DocumentSnapshot>(
-          future:
-              FirebaseFirestore.instance.collection('users').doc(uid).get(),
+        return StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .snapshots(),
           builder: (context, roleSnapshot) {
-            if (roleSnapshot.connectionState == ConnectionState.waiting) {
+            if (!roleSnapshot.hasData && !roleSnapshot.hasError) {
               return const Scaffold(
                 body: Center(child: CircularProgressIndicator()),
               );
@@ -69,7 +71,8 @@ class AuthGate extends StatelessWidget {
 
             if (roleSnapshot.hasError) {
               return const _CompteBloque(
-                message: 'Impossible de charger votre profil. '
+                message:
+                    'Impossible de charger votre profil. '
                     'Vérifiez votre connexion internet.',
               );
             }
@@ -79,29 +82,32 @@ class AuthGate extends StatelessWidget {
             final data = roleSnapshot.data?.data() as Map<String, dynamic>?;
             if (data == null) {
               return const _CompteBloque(
-                message: 'Compte introuvable. Contactez le responsable '
+                message:
+                    'Compte introuvable. Contactez le responsable '
                     'de la chorale.',
+                effacerDonnees: true,
               );
             }
             if (data['actif'] == false) {
               return const _CompteBloque(
-                message: 'Votre compte a été désactivé. Contactez le '
+                message:
+                    'Votre compte a été désactivé. Contactez le '
                     'responsable de la chorale.',
+                effacerDonnees: true,
               );
             }
 
-            final role = data['role'];
+            final role = data['role'] as String? ?? 'membre';
 
-            switch (role) {
-              case 'chef':
-                return const ChefScreen();
-              case 'responsable':
-                return const ResponsableScreen();
-              case 'lyrics_manager':
-                return const LyricsManagerScreen();
-              default:
-                return const MembreScreen();
-            }
+            return RappelsSync(
+              role: role,
+              child: switch (role) {
+                'chef' => const ChefScreen(),
+                'responsable' => const ResponsableScreen(),
+                'lyrics_manager' => const GestionnaireParolesScreen(),
+                _ => const MembreScreen(),
+              },
+            );
           },
         );
       },
@@ -111,12 +117,32 @@ class AuthGate extends StatelessWidget {
 
 /// Écran affiché quand la personne est connectée mais ne peut pas entrer
 /// (fiche absente ou compte désactivé). Seule action : se déconnecter.
-class _CompteBloque extends StatelessWidget {
+class _CompteBloque extends StatefulWidget {
   final String message;
-  const _CompteBloque({required this.message});
+
+  /// Compte désactivé ou introuvable : on efface les playbacks téléchargés
+  /// et les rappels programmés sur ce téléphone.
+  final bool effacerDonnees;
+
+  const _CompteBloque({required this.message, this.effacerDonnees = false});
+
+  @override
+  State<_CompteBloque> createState() => _CompteBloqueState();
+}
+
+class _CompteBloqueState extends State<_CompteBloque> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.effacerDonnees) {
+      stockage.supprimerTout().catchError((_) {});
+      Rappels.toutAnnuler();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final message = widget.message;
     return Scaffold(
       body: Center(
         child: Padding(

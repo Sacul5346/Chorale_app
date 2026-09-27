@@ -39,10 +39,6 @@ class _ResponsableScreenState extends State<ResponsableScreen> {
           body: screens[_currentIndex],
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: _currentIndex,
-            selectedItemColor: Colors.orange,
-            unselectedItemColor: Colors.grey[700],
-            backgroundColor: Colors.white,
-            elevation: 8,
             onTap: (index) => setState(() => _currentIndex = index),
             items: [
               const BottomNavigationBarItem(
@@ -75,4 +71,3 @@ class _ResponsableScreenState extends State<ResponsableScreen> {
     );
   }
 }
-

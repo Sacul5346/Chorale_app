@@ -11,11 +11,7 @@ class MesConversationsScreen extends StatelessWidget {
     final currentUid = FirebaseAuth.instance.currentUser!.uid;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mes excuses'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('Mes excuses')),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('conversations')
@@ -33,11 +29,12 @@ class MesConversationsScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.chat_bubble_outline,
-                      size: 64, color: Colors.grey),
+                  Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
                   SizedBox(height: 16),
-                  Text('Aucune conversation pour le moment',
-                      style: TextStyle(color: Colors.grey)),
+                  Text(
+                    'Aucune conversation pour le moment',
+                    style: TextStyle(color: Colors.grey),
+                  ),
                   SizedBox(height: 8),
                   Text(
                     'Ouvre une répétition et envoie\nune excuse au responsable',
@@ -50,8 +47,7 @@ class MesConversationsScreen extends StatelessWidget {
           }
 
           return FutureBuilder<QuerySnapshot>(
-            future:
-                FirebaseFirestore.instance.collection('repetitions').get(),
+            future: FirebaseFirestore.instance.collection('repetitions').get(),
             builder: (context, repSnapshot) {
               if (!repSnapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
@@ -61,7 +57,7 @@ class MesConversationsScreen extends StatelessWidget {
               for (var doc in repSnapshot.data!.docs) {
                 repsById[doc.id] =
                     (doc.data() as Map<String, dynamic>)['titre'] as String? ??
-                        'Sans titre';
+                    'Sans titre';
               }
 
               return ListView.builder(
@@ -81,8 +77,10 @@ class MesConversationsScreen extends StatelessWidget {
                         backgroundColor: Colors.teal,
                         child: Icon(Icons.music_note, color: Colors.white),
                       ),
-                      title: Text(repTitre,
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                      title: Text(
+                        repTitre,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       subtitle: Text(
                         lastMessage,
                         maxLines: 1,

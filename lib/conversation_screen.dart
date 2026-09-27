@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'theme.dart';
 
 class ConversationScreen extends StatefulWidget {
   final String repetitionId;
@@ -51,12 +52,12 @@ class _ConversationScreenState extends State<ConversationScreen> {
         .collection('conversations')
         .doc(convId)
         .set({
-      'repetitionId': widget.repetitionId,
-      'membreId': widget.membreId,
-      'lastMessage': texte,
-      'lastSentAt': FieldValue.serverTimestamp(),
-      'unreadByResponsable': senderId == widget.membreId,
-    }, SetOptions(merge: true));
+          'repetitionId': widget.repetitionId,
+          'membreId': widget.membreId,
+          'lastMessage': texte,
+          'lastSentAt': FieldValue.serverTimestamp(),
+          'unreadByResponsable': senderId == widget.membreId,
+        }, SetOptions(merge: true));
 
     // Ajouter le message dans la sous-collection
     await FirebaseFirestore.instance
@@ -64,11 +65,11 @@ class _ConversationScreenState extends State<ConversationScreen> {
         .doc(convId)
         .collection('messages')
         .add({
-      'texte': texte,
-      'senderId': senderId,
-      'lu': false,
-      'sentAt': FieldValue.serverTimestamp(),
-    });
+          'texte': texte,
+          'senderId': senderId,
+          'lu': false,
+          'sentAt': FieldValue.serverTimestamp(),
+        });
 
     Future.delayed(const Duration(milliseconds: 300), () {
       if (_scrollController.hasClients) {
@@ -90,13 +91,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.membreNom,
-                style: const TextStyle(fontSize: 16)),
-            Text(widget.repetitionTitre,
-                style: const TextStyle(fontSize: 12, color: Colors.white70)),
+            Text(widget.membreNom, style: const TextStyle(fontSize: 16)),
+            Text(
+              widget.repetitionTitre,
+              style: const TextStyle(fontSize: 12, color: Colors.white70),
+            ),
           ],
         ),
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: CouleursChorale.aubergine,
         foregroundColor: Colors.white,
       ),
       body: Column(
@@ -119,11 +121,16 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.chat_bubble_outline,
-                            size: 64, color: Colors.grey),
+                        Icon(
+                          Icons.chat_bubble_outline,
+                          size: 64,
+                          color: Colors.grey,
+                        ),
                         SizedBox(height: 16),
-                        Text('Aucun message pour le moment',
-                            style: TextStyle(color: Colors.grey)),
+                        Text(
+                          'Aucun message pour le moment',
+                          style: TextStyle(color: Colors.grey),
+                        ),
                       ],
                     ),
                   );
@@ -143,7 +150,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (_scrollController.hasClients) {
                     _scrollController.jumpTo(
-                        _scrollController.position.maxScrollExtent);
+                      _scrollController.position.maxScrollExtent,
+                    );
                   }
                 });
 
@@ -162,15 +170,16 @@ class _ConversationScreenState extends State<ConversationScreen> {
                           : Alignment.centerLeft,
                       child: Container(
                         constraints: BoxConstraints(
-                          maxWidth:
-                              MediaQuery.of(context).size.width * 0.7,
+                          maxWidth: MediaQuery.of(context).size.width * 0.7,
                         ),
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: isMe
-                              ? Colors.deepPurple
+                              ? CouleursChorale.aubergine
                               : Colors.grey.shade200,
                           borderRadius: BorderRadius.circular(14),
                         ),
@@ -187,16 +196,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.deepPurple.shade300,
+                                    color: CouleursChorale.aubergineClair,
                                   ),
                                 ),
                               ),
                             Text(
                               msg['texte'] ?? '',
                               style: TextStyle(
-                                color: isMe
-                                    ? Colors.white
-                                    : Colors.black87,
+                                color: isMe ? Colors.white : Colors.black87,
                               ),
                             ),
                           ],
@@ -236,17 +243,18 @@ class _ConversationScreenState extends State<ConversationScreen> {
                       filled: true,
                       fillColor: Colors.grey.shade100,
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                     ),
                     onSubmitted: (_) => _sendMessage(),
                   ),
                 ),
                 const SizedBox(width: 8),
                 CircleAvatar(
-                  backgroundColor: Colors.deepPurple,
+                  backgroundColor: CouleursChorale.aubergine,
                   child: IconButton(
-                    icon: const Icon(Icons.send,
-                        color: Colors.white, size: 20),
+                    icon: const Icon(Icons.send, color: Colors.white, size: 20),
                     onPressed: _sendMessage,
                   ),
                 ),

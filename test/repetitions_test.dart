@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:chorale_app/parametres.dart';
 import 'package:chorale_app/repetition_model.dart';
 import 'package:chorale_app/repetitions_screen.dart';
 
@@ -36,5 +37,20 @@ void main() {
         isTrue,
       );
     });
+  });
+
+  test('planning personnalisé : mardi ajouté, lieu repris', () {
+    final reps = RepetitionsScreen.repetitionsDuMois(DateTime(2026, 10, 1), [
+      const Creneau(jour: DateTime.tuesday, heure: '17h30', lieu: 'Église'),
+      const Creneau(
+          jour: DateTime.thursday, heure: '18h00', lieu: 'Salle', aConfirmer: true),
+    ]);
+    final mardis = reps.where((r) => r['jour'] == 'Mardi').toList();
+    expect(mardis, hasLength(4)); // 6, 13, 20, 27 octobre 2026
+    expect(mardis.first['date'], DateTime(2026, 10, 6));
+    expect(mardis.first['lieu'], 'Église');
+    expect(mardis.first['confirmed'], isTrue);
+    final jeudis = reps.where((r) => r['jour'] == 'Jeudi');
+    expect(jeudis.every((r) => r['confirmed'] == false), isTrue);
   });
 }

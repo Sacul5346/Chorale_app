@@ -43,3 +43,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Clé API Google Drive pour les tests locaux (jamais sur GitHub)
+/cle_drive.json

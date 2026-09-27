@@ -5,6 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 
+import 'activite.dart' show genreSelonVoix;
+import 'anniversaires.dart';
+import 'theme.dart';
+
 class GestionUtilisateursScreen extends StatefulWidget {
   const GestionUtilisateursScreen({super.key});
 
@@ -13,16 +17,11 @@ class GestionUtilisateursScreen extends StatefulWidget {
       _GestionUtilisateursScreenState();
 }
 
-class _GestionUtilisateursScreenState
-    extends State<GestionUtilisateursScreen> {
+class _GestionUtilisateursScreenState extends State<GestionUtilisateursScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Gestion des membres'),
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('Gestion des membres')),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('users').snapshots(),
         builder: (context, snapshot) {
@@ -52,7 +51,9 @@ class _GestionUtilisateursScreenState
               continue;
             }
 
-            final voix = data.containsKey('voix') ? data['voix'] : 'non_definie';
+            final voix = data.containsKey('voix')
+                ? data['voix']
+                : 'non_definie';
             if (groupedByVoix.containsKey(voix)) {
               groupedByVoix[voix]!.add(user);
             } else {
@@ -107,8 +108,9 @@ class _GestionUtilisateursScreenState
                       color: actif ? null : Colors.grey.shade200,
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor:
-                              actif ? _roleColor(role) : Colors.grey,
+                          backgroundColor: actif
+                              ? _roleColor(role)
+                              : Colors.grey,
                           backgroundImage: photo is String && photo.isNotEmpty
                               ? MemoryImage(base64Decode(photo))
                               : null,
@@ -128,9 +130,11 @@ class _GestionUtilisateursScreenState
                                   decoration: TextDecoration.lineThrough,
                                 ),
                         ),
-                        subtitle: Text(actif
-                            ? (data['email'] as String? ?? '')
-                            : 'Compte désactivé'),
+                        subtitle: Text(
+                          actif
+                              ? (data['email'] as String? ?? '')
+                              : 'Compte désactivé',
+                        ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -138,10 +142,13 @@ class _GestionUtilisateursScreenState
                               label: Text(
                                 role,
                                 style: const TextStyle(
-                                    color: Colors.white, fontSize: 12),
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
                               ),
-                              backgroundColor:
-                                  actif ? _roleColor(role) : Colors.grey,
+                              backgroundColor: actif
+                                  ? _roleColor(role)
+                                  : Colors.grey,
                             ),
                             IconButton(
                               icon: const Icon(Icons.edit, color: Colors.blue),
@@ -150,18 +157,25 @@ class _GestionUtilisateursScreenState
                             if (actif)
                               IconButton(
                                 tooltip: 'Désactiver',
-                                icon: const Icon(Icons.person_off_outlined,
-                                    color: Colors.red),
-                                onPressed: () =>
-                                    _confirmDesactivation(context, user.id, nom),
+                                icon: const Icon(
+                                  Icons.person_off_outlined,
+                                  color: Colors.red,
+                                ),
+                                onPressed: () => _confirmDesactivation(
+                                  context,
+                                  user.id,
+                                  nom,
+                                ),
                               )
                             else
                               IconButton(
                                 tooltip: 'Réactiver',
-                                icon: const Icon(Icons.person_add_alt_1,
-                                    color: Colors.green),
-                                onPressed: () => _setActif(
-                                    context, user.id, nom, true),
+                                icon: const Icon(
+                                  Icons.person_add_alt_1,
+                                  color: Colors.green,
+                                ),
+                                onPressed: () =>
+                                    _setActif(context, user.id, nom, true),
                               ),
                           ],
                         ),
@@ -185,7 +199,7 @@ class _GestionUtilisateursScreenState
   Color _roleColor(String role) {
     switch (role) {
       case 'chef':
-        return Colors.deepPurple;
+        return CouleursChorale.aubergine;
       case 'responsable':
         return Colors.orange;
       case 'lyrics_manager':
@@ -199,17 +213,21 @@ class _GestionUtilisateursScreenState
   // (Firebase Auth) d'une autre personne est impossible depuis l'app.
   // Un compte désactivé est bloqué par AuthGate (main.dart).
   Future<void> _setActif(
-      BuildContext context, String userId, String nom, bool actif) async {
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(userId)
-        .update({'actif': actif});
+    BuildContext context,
+    String userId,
+    String nom,
+    bool actif,
+  ) async {
+    await FirebaseFirestore.instance.collection('users').doc(userId).update({
+      'actif': actif,
+    });
+    await activerAnniversaire(userId, actif).catchError((_) {});
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(actif
-              ? '$nom a été réactivé.'
-              : '$nom a été désactivé.'),
+          content: Text(
+            actif ? '$nom a été réactivé.' : '$nom a été désactivé.',
+          ),
           backgroundColor: actif ? Colors.green : Colors.red,
         ),
       );
@@ -246,16 +264,32 @@ class _GestionUtilisateursScreenState
     );
   }
 
-  void _showEditDialog(BuildContext context, QueryDocumentSnapshot user) {
+  Future<void> _showEditDialog(
+    BuildContext context,
+    QueryDocumentSnapshot user,
+  ) async {
     final data = user.data() as Map<String, dynamic>;
+    final anniversaire = await lireAnniversaire(
+      user.id,
+    ).catchError((_) => null);
+    if (!context.mounted) return;
+    int? jourNaissance = anniversaire?.jour;
+    int? moisNaissance = anniversaire?.mois;
+    var anniversaireModifie = false;
     final nomController = TextEditingController(text: data['Nom'] ?? '');
     // Une valeur absente de la liste ferait planter le menu déroulant.
     const roles = ['membre', 'lyrics_manager', 'responsable', 'chef'];
     const voix = ['soprano', 'alto', 'tenor', 'basse'];
-    String selectedRole =
-        roles.contains(data['role']) ? data['role'] as String : 'membre';
-    String selectedVoix =
-        voix.contains(data['voix']) ? data['voix'] as String : 'soprano';
+    String selectedRole = roles.contains(data['role'])
+        ? data['role'] as String
+        : 'membre';
+    String selectedVoix = voix.contains(data['voix'])
+        ? data['voix'] as String
+        : 'soprano';
+    // Genre (classement des membres du mois) : proposé selon la voix.
+    String? selectedGenre = data['genre'] == 'homme' || data['genre'] == 'femme'
+        ? data['genre'] as String
+        : genreSelonVoix(data['voix']);
 
     showDialog(
       context: context,
@@ -323,6 +357,23 @@ class _GestionUtilisateursScreenState
                       setState(() => selectedVoix = value!);
                     },
                   ),
+                if (selectedRole != 'chef') ...[
+                  const SizedBox(height: 12),
+                  _choixGenre(
+                    selectedGenre,
+                    (g) => setState(() => selectedGenre = g),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                ChampAnniversaire(
+                  jour: jourNaissance,
+                  mois: moisNaissance,
+                  onChange: (jour, mois) => setState(() {
+                    jourNaissance = jour;
+                    moisNaissance = mois;
+                    anniversaireModifie = true;
+                  }),
+                ),
               ],
             ),
           ),
@@ -343,12 +394,23 @@ class _GestionUtilisateursScreenState
                 };
                 if (selectedRole != 'chef') {
                   updateData['voix'] = selectedVoix;
+                  if (selectedGenre != null) {
+                    updateData['genre'] = selectedGenre!;
+                  }
                 }
 
                 await FirebaseFirestore.instance
                     .collection('users')
                     .doc(user.id)
                     .update(updateData);
+                if (anniversaireModifie || jourNaissance != null) {
+                  await enregistrerAnniversaire(
+                    user.id,
+                    nomController.text.trim(),
+                    jourNaissance,
+                    moisNaissance,
+                  );
+                }
 
                 if (context.mounted) {
                   Navigator.pop(context);
@@ -374,6 +436,8 @@ class _GestionUtilisateursScreenState
     final passwordController = TextEditingController();
     String selectedRole = 'membre';
     String selectedVoix = 'soprano';
+    String? selectedGenre = genreSelonVoix('soprano');
+    var genreChoisiALaMain = false;
     bool isLoading = false;
     String errorMessage = '';
 
@@ -421,9 +485,13 @@ class _GestionUtilisateursScreenState
                   items: const [
                     DropdownMenuItem(value: 'membre', child: Text('Membre')),
                     DropdownMenuItem(
-                        value: 'lyrics_manager', child: Text('Gestionnaire de Lyrics')),
+                      value: 'lyrics_manager',
+                      child: Text('Gestionnaire de Lyrics'),
+                    ),
                     DropdownMenuItem(
-                        value: 'responsable', child: Text('Responsable')),
+                      value: 'responsable',
+                      child: Text('Responsable'),
+                    ),
                     DropdownMenuItem(value: 'chef', child: Text('Chef')),
                   ],
                   onChanged: (value) {
@@ -453,8 +521,21 @@ class _GestionUtilisateursScreenState
                     DropdownMenuItem(value: 'basse', child: Text('Basse')),
                   ],
                   onChanged: (value) {
-                    setState(() => selectedVoix = value!);
+                    setState(() {
+                      selectedVoix = value!;
+                      if (!genreChoisiALaMain) {
+                        selectedGenre = genreSelonVoix(selectedVoix);
+                      }
+                    });
                   },
+                ),
+                const SizedBox(height: 12),
+                _choixGenre(
+                  selectedGenre,
+                  (g) => setState(() {
+                    selectedGenre = g;
+                    genreChoisiALaMain = true;
+                  }),
                 ),
                 if (errorMessage.isNotEmpty)
                   Padding(
@@ -501,7 +582,8 @@ class _GestionUtilisateursScreenState
                       // échouerait (« duplicate-app »).
                       FirebaseApp? secondaryApp;
                       try {
-                        secondaryApp = Firebase.apps
+                        secondaryApp =
+                            Firebase.apps
                                 .where((app) => app.name == 'secondary')
                                 .firstOrNull ??
                             await Firebase.initializeApp(
@@ -509,24 +591,26 @@ class _GestionUtilisateursScreenState
                               options: Firebase.app().options,
                             );
 
-                        final secondaryAuth =
-                            FirebaseAuth.instanceFor(app: secondaryApp);
+                        final secondaryAuth = FirebaseAuth.instanceFor(
+                          app: secondaryApp,
+                        );
 
                         final credential = await secondaryAuth
                             .createUserWithEmailAndPassword(
-                          email: emailController.text.trim(),
-                          password: passwordController.text.trim(),
-                        );
+                              email: emailController.text.trim(),
+                              password: passwordController.text.trim(),
+                            );
 
                         await FirebaseFirestore.instance
                             .collection('users')
                             .doc(credential.user!.uid)
                             .set({
-                          'Nom': nomController.text.trim(),
-                          'email': emailController.text.trim(),
-                          'role': selectedRole,
-                          'voix': selectedVoix,
-                        });
+                              'Nom': nomController.text.trim(),
+                              'email': emailController.text.trim(),
+                              'role': selectedRole,
+                              'voix': selectedVoix,
+                              'genre': ?selectedGenre,
+                            });
 
                         await secondaryAuth.signOut();
 
@@ -545,8 +629,7 @@ class _GestionUtilisateursScreenState
                           errorMessage = switch (e.code) {
                             'email-already-in-use' =>
                               'Cet email est déjà utilisé.',
-                            'weak-password' =>
-                              'Mot de passe trop faible.',
+                            'weak-password' => 'Mot de passe trop faible.',
                             'invalid-email' => 'Email invalide.',
                             'network-request-failed' =>
                               'Pas de connexion internet.',
@@ -576,6 +659,26 @@ class _GestionUtilisateursScreenState
           ],
         ),
       ),
+    );
+  }
+
+  /// Genre du membre : sert à désigner un homme et une femme « membres du
+  /// mois ».
+  static Widget _choixGenre(String? valeur, ValueChanged<String?> onChanged) {
+    return DropdownButtonFormField<String>(
+      // La clé force l'affichage de la nouvelle valeur quand elle est
+      // proposée automatiquement (changement de voix).
+      key: ValueKey(valeur),
+      initialValue: valeur,
+      decoration: const InputDecoration(
+        labelText: 'Genre (membres du mois)',
+        border: OutlineInputBorder(),
+      ),
+      items: const [
+        DropdownMenuItem(value: 'femme', child: Text('Femme')),
+        DropdownMenuItem(value: 'homme', child: Text('Homme')),
+      ],
+      onChanged: onChanged,
     );
   }
 }

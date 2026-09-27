@@ -1,0 +1,159 @@
+rules_version = '2';
+
+// Règles de sécurité de la chorale (projet apktkfa).
+// À publier dans la console Firebase > Firestore Database > Règles.
+// Compatibles avec toutes les versions de l'app, y compris l'ancienne 1.0.0
+// (qui range la réponse du membre dans `statut` : voir « Présences »).
+//
+// Rôles : chef, responsable, lyrics_manager, membre (défaut).
+// Un compte avec actif == false n'a plus accès à rien, sauf à sa propre fiche
+// (pour que l'app puisse lui afficher « compte désactivé »).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Fonctions utiles ----------
+    function connecte() {
+      return request.auth != null;
+    }
+    function cheminMoi() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+    function moi() {
+      return get(cheminMoi()).data;
+    }
+    // Connecté, avec une fiche, et non désactivé.
+    function actif() {
+      return connecte() && exists(cheminMoi()) && moi().get('actif', true) != false;
+    }
+    function role() {
+      return moi().get('role', 'membre');
+    }
+    // Chef et responsable : gestion de la chorale.
+    function gestionnaire() {
+      return actif() && role() in ['chef', 'responsable'];
+    }
+    function modifieSeulement(champs) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(champs);
+    }
+
+    // ---------- Membres ----------
+    match /users/{userId} {
+      // Sa propre fiche : toujours lisible (même désactivé).
+      // Les autres fiches (photos, emails) : chef et responsable seulement.
+      allow read: if connecte() && (request.auth.uid == userId || gestionnaire());
+
+      // Création / suppression de comptes : chef et responsable.
+      allow create, delete: if gestionnaire();
+
+      // Chef et responsable modifient tout ; chacun peut changer son nom et
+      // sa photo, mais JAMAIS son rôle, sa voix ou son statut actif.
+      allow update: if gestionnaire()
+        || (actif() && request.auth.uid == userId
+            && modifieSeulement(['Nom', 'photoBase64']));
+    }
+
+    // ---------- Répétitions ----------
+    match /repetitions/{repId} {
+      allow read: if actif();
+      allow write: if gestionnaire();
+    }
+
+    // ---------- Présences ----------
+    // Réponse du membre : `intention` (app récente) ou `statut` contenant
+    // present | absent | retard (ancienne app 1.0.0).
+    // Présence constatée (present_heure, absent_excuse…) : chef et
+    // responsable uniquement. Un membre ne peut JAMAIS modifier une présence
+    // déjà validée par le responsable.
+    match /presences/{presenceId} {
+      function estReponse(valeur) {
+        return valeur in ['present', 'absent', 'retard'];
+      }
+
+      allow read: if gestionnaire()
+        || (actif() && resource.data.userId == request.auth.uid);
+
+      allow create: if gestionnaire()
+        || (actif()
+            && request.resource.data.userId == request.auth.uid
+            && request.resource.data.keys().hasOnly(
+                 ['userId', 'repetitionId', 'intention', 'intentionAt',
+                  'statut', 'confirmedAt'])
+            && estReponse(request.resource.data.get('intention', 'present'))
+            && estReponse(request.resource.data.get('statut', 'present')));
+
+      allow update: if gestionnaire()
+        || (actif()
+            && resource.data.userId == request.auth.uid
+            && modifieSeulement(['intention', 'intentionAt', 'statut', 'confirmedAt'])
+            && estReponse(request.resource.data.get('intention', 'present'))
+            // `statut` ne peut changer que s'il n'était pas encore validé
+            // (vide ou simple réponse), et seulement pour une réponse ou
+            // pour être effacé.
+            && (!('statut' in request.resource.data.diff(resource.data).affectedKeys())
+                || ((!('statut' in resource.data) || estReponse(resource.data.statut))
+                    && estReponse(request.resource.data.get('statut', 'present')))));
+
+      allow delete: if gestionnaire();
+    }
+
+    // ---------- Excuses (conversation = {repetitionId}_{membreId}) ----------
+    match /conversations/{convId} {
+      function estMaConversation() {
+        return convId.matches('.*_' + request.auth.uid);
+      }
+
+      allow read: if gestionnaire()
+        || (actif() && resource.data.membreId == request.auth.uid);
+
+      // Le membre crée / met à jour SA conversation (envoi d'une excuse).
+      allow create, update: if gestionnaire()
+        || (actif() && estMaConversation()
+            && request.resource.data.membreId == request.auth.uid);
+
+      allow delete: if gestionnaire();
+
+      match /messages/{messageId} {
+        allow read: if gestionnaire() || (actif() && estMaConversation());
+
+        allow create: if (gestionnaire() || (actif() && estMaConversation()))
+          && request.resource.data.senderId == request.auth.uid;
+
+        // Seul le champ « lu » peut changer (message lu par l'autre personne).
+        allow update: if (gestionnaire() || (actif() && estMaConversation()))
+          && modifieSeulement(['lu']);
+
+        allow delete: if gestionnaire();
+      }
+    }
+
+    // ---------- Chansons, paroles et playbacks ----------
+    match /songs/{songId} {
+      allow read: if actif();
+      allow write: if actif() && role() in ['chef', 'responsable', 'lyrics_manager'];
+    }
+
+    // ---------- Paramètres de la chorale (planning, régions, rappel, barème) ----------
+    match /parametres/{docId} {
+      allow read: if actif();
+      allow write: if gestionnaire();
+    }
+
+    // ---------- Membres du mois (gagnants publiés) ----------
+    match /recompenses/{mois} {
+      allow read: if actif();
+      allow write: if gestionnaire();
+    }
+
+    // ---------- Anniversaires (nom + jour/mois, lisibles par tous) ----------
+    // Chacun gère le sien ; chef et responsable peuvent gérer ceux de tous.
+    match /anniversaires/{uid} {
+      allow read: if actif();
+      allow write: if gestionnaire() || (actif() && request.auth.uid == uid);
+    }
+
+    // Ancienne collection (plus utilisée) et tout le reste : fermé.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,11 +1,11 @@
 {
-    "name": "chorale_app",
-    "short_name": "chorale_app",
+    "name": "K.T.K.F.A — Chorale",
+    "short_name": "K.T.K.F.A",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Kristiana Tanora Kerobima Fiadanana Andranovory : répétitions, chants et présences de la chorale.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

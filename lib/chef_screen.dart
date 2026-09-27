@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'messages_screen.dart';
 import 'repetitions_screen.dart';
 import 'songs_screen.dart';
 
@@ -17,16 +18,13 @@ class _ChefScreenState extends State<ChefScreen> {
     final screens = [
       const RepetitionsScreen(role: 'chef'),
       const SongsScreen(role: 'chef'),
+      const MessagesScreen(marquerLu: false),
     ];
 
     return Scaffold(
       body: screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        selectedItemColor: Colors.deepPurple,
-        unselectedItemColor: Colors.grey[700],
-        backgroundColor: Colors.white,
-        elevation: 8,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
           BottomNavigationBarItem(
@@ -37,6 +35,7 @@ class _ChefScreenState extends State<ChefScreen> {
             icon: Icon(Icons.music_note),
             label: 'Chansons',
           ),
+          BottomNavigationBarItem(icon: Icon(Icons.message), label: 'Excuses'),
         ],
       ),
     );

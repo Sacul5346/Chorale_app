@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'association_playbacks_screen.dart';
+import 'parametres.dart';
 import 'profile_screen.dart';
 import 'lyrics_editor_screen.dart';
-import 'lyrics_player_screen.dart';
+import 'lyrics_view_screen.dart';
+import 'theme.dart';
 
 class LyricsManagerScreen extends StatefulWidget {
   const LyricsManagerScreen({super.key});
@@ -18,8 +23,21 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
   final _searchController = TextEditingController();
   String _selectedRegion = 'Tous';
 
+  /// Régions réglées dans « Paramètres de la chorale ».
+  List<String> _regions = ParametresChorale.defaut.regions;
+  StreamSubscription<ParametresChorale>? _abonnementParametres;
+
+  @override
+  void initState() {
+    super.initState();
+    _abonnementParametres = ParametresChorale.ecouter().listen((p) {
+      if (mounted) setState(() => _regions = p.regions);
+    });
+  }
+
   @override
   void dispose() {
+    _abonnementParametres?.cancel();
     _songTitleController.dispose();
     _songArtistController.dispose();
     _searchController.dispose();
@@ -31,8 +49,6 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gestion des Chansons'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.person),
@@ -44,6 +60,16 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.drive_folder_upload),
+            tooltip: 'Associer les playbacks d’un dossier Drive',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const AssociationPlaybacksScreen(),
+              ),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.add),
             tooltip: 'Ajouter une chanson',
             onPressed: () => _showAddSongDialog(context),
@@ -53,7 +79,7 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
             onPressed: () async {
               await FirebaseAuth.instance.signOut();
             },
-          )
+          ),
         ],
       ),
       body: Column(
@@ -79,7 +105,7 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
               child: Row(
-                children: ['Tous', 'Sud', 'Merina', 'Sud-Est'].map((region) {
+                children: ['Tous', ..._regions].map((region) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4.0),
                     child: FilterChip(
@@ -108,9 +134,7 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
                 }
 
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
-                    child: Text('Aucune chanson trouvée'),
-                  );
+                  return const Center(child: Text('Aucune chanson trouvée'));
                 }
 
                 List<DocumentSnapshot> songs = snapshot.data!.docs;
@@ -133,13 +157,17 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
                 if (_searchController.text.isNotEmpty) {
                   final recherche = _searchController.text.toLowerCase();
                   songs = songs
-                      .where((doc) =>
-                          champ(doc, 'title')
-                              .toLowerCase()
-                              .contains(recherche) ||
-                          champ(doc, 'artist')
-                              .toLowerCase()
-                              .contains(recherche))
+                      .where(
+                        (doc) =>
+                            champ(
+                              doc,
+                              'title',
+                            ).toLowerCase().contains(recherche) ||
+                            champ(
+                              doc,
+                              'artist',
+                            ).toLowerCase().contains(recherche),
+                      )
                       .toList();
                 }
 
@@ -147,8 +175,9 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
                 Map<String, List<DocumentSnapshot>> songsByRegion = {};
                 for (var song in songs) {
                   final regionBrute = champ(song, 'region');
-                  final region =
-                      regionBrute.isEmpty ? 'Sans région' : regionBrute;
+                  final region = regionBrute.isEmpty
+                      ? 'Sans région'
+                      : regionBrute;
                   if (!songsByRegion.containsKey(region)) {
                     songsByRegion[region] = [];
                   }
@@ -167,11 +196,9 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                           child: Text(
                             region,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
+                            style: Theme.of(context).textTheme.titleLarge
                                 ?.copyWith(
-                                  color: Colors.deepPurple,
+                                  color: CouleursChorale.aubergine,
                                   fontWeight: FontWeight.bold,
                                 ),
                           ),
@@ -197,7 +224,12 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
     String songId,
     Map<String, dynamic> songData,
   ) {
-    final hasLyrics = songData['lyrics'] != null && songData['lyrics'].isNotEmpty;
+    final hasLyrics =
+        songData['lyrics'] is String &&
+        (songData['lyrics'] as String).trim().isNotEmpty;
+    final aUnPlayback =
+        songData['playbackUrl'] is String &&
+        (songData['playbackUrl'] as String).trim().isNotEmpty;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -207,7 +239,10 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
           color: hasLyrics ? Colors.green : Colors.grey,
         ),
         title: Text(songData['title'] ?? 'Sans titre'),
-        subtitle: Text(songData['artist'] ?? 'Artiste inconnu'),
+        subtitle: Text(
+          '${songData['artist'] ?? 'Artiste inconnu'}'
+          '${aUnPlayback ? '  ·  🎧 Playback' : ''}',
+        ),
         trailing: SizedBox(
           width: 120,
           child: Row(
@@ -228,17 +263,17 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
                   );
                 },
               ),
-              if (hasLyrics)
+              if (hasLyrics || aUnPlayback)
                 IconButton(
                   icon: const Icon(Icons.play_circle, color: Colors.green),
-                  tooltip: 'Lire avec lyrics',
+                  tooltip: 'Écouter et lire les paroles',
                   onPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => LyricsPlayerScreen(
+                        builder: (_) => LyricsViewScreen(
                           songId: songId,
-                          songData: songData,
+                          titre: songData['title'] as String? ?? 'Sans titre',
                         ),
                       ),
                     );
@@ -260,7 +295,7 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
   }
 
   void _showAddSongDialog(BuildContext context) {
-    String selectedRegion = 'Sud';
+    String selectedRegion = _regions.first;
 
     showDialog(
       context: context,
@@ -290,11 +325,8 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
                 DropdownButton<String>(
                   value: selectedRegion,
                   isExpanded: true,
-                  items: ['Sud', 'Merina', 'Sud-Est'].map((region) {
-                    return DropdownMenuItem(
-                      value: region,
-                      child: Text(region),
-                    );
+                  items: _regions.map((region) {
+                    return DropdownMenuItem(value: region, child: Text(region));
                   }).toList(),
                   onChanged: (value) {
                     setDialogState(() {
@@ -316,7 +348,9 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
                     _songArtistController.text.isEmpty) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Veuillez remplir tous les champs')),
+                      const SnackBar(
+                        content: Text('Veuillez remplir tous les champs'),
+                      ),
                     );
                   }
                   return;
@@ -337,14 +371,16 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
                   if (context.mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Chanson ajoutée avec succès')),
+                      const SnackBar(
+                        content: Text('Chanson ajoutée avec succès'),
+                      ),
                     );
                   }
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Erreur: $e')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
                   }
                 }
               },
@@ -360,15 +396,15 @@ class _LyricsManagerScreenState extends State<LyricsManagerScreen> {
     try {
       await FirebaseFirestore.instance.collection('songs').doc(songId).delete();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Chanson supprimée')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Chanson supprimée')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
     }
   }

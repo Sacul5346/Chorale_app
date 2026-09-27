@@ -25,10 +25,6 @@ class _MembreScreenState extends State<MembreScreen> {
       body: screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        selectedItemColor: Colors.teal,
-        unselectedItemColor: Colors.grey[700],
-        backgroundColor: Colors.white,
-        elevation: 8,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
           BottomNavigationBarItem(

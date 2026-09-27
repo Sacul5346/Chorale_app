@@ -1,14 +1,23 @@
 # Fabrique l'APK signé de l'application sur les serveurs de GitHub.
 # Lancement : onglet « Actions » du dépôt > « Fabriquer l'APK » > « Run workflow ».
-# Le fichier APK se télécharge ensuite en bas de la page du lancement (« Artifacts »).
+# L'APK est publié dans une « Release » : lien direct, sans compte GitHub, qui
+# pointe toujours vers la dernière version :
+#   https://github.com/Sacul5346/Chorale_app/releases/latest/download/chorale.apk
+# Pour une nouvelle version, augmenter `version:` dans pubspec.yaml avant de lancer
+# (relancer avec le même numéro remplace simplement l'APK de cette version).
 #
 # Secrets nécessaires (Settings > Secrets and variables > Actions) :
 #   KEYSTORE_BASE64   : la clé chorale-release.p12 encodée en base64
 #   KEYSTORE_PASSWORD : son mot de passe
+#   DRIVE_API_KEY     : (facultatif) clé API Google limitée à « Google Drive API »
 name: Fabriquer l'APK
 
 on:
   workflow_dispatch:
+
+# Nécessaire pour créer la Release et y déposer l'APK.
+permissions:
+  contents: write
 
 jobs:
   apk:
@@ -52,7 +61,13 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
-      - run: flutter build apk --release
+      # Clé API Google Drive (association automatique des playbacks).
+      # Facultative : sans elle, l'app fonctionne mais cette fonction
+      # affiche « clé non configurée ».
+      - name: Fabriquer l'APK
+        env:
+          DRIVE_API_KEY: ${{ secrets.DRIVE_API_KEY }}
+        run: flutter build apk --release --dart-define=DRIVE_API_KEY="$DRIVE_API_KEY"
 
       - name: Nommer l'APK avec sa version
         run: |
@@ -60,8 +75,18 @@ jobs:
           mv build/app/outputs/flutter-apk/app-release.apk "chorale-$VERSION.apk"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
-      - uses: actions/upload-artifact@v7
-        with:
-          name: chorale-${{ env.VERSION }}
-          path: chorale-*.apk
-          retention-days: 30
+      - name: Publier la Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp "chorale-$VERSION.apk" chorale.apk
+          TAG="v$VERSION"
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "chorale-$VERSION.apk" chorale.apk --clobber
+          else
+            gh release create "$TAG" "chorale-$VERSION.apk" chorale.apk \
+              --target "$GITHUB_SHA" \
+              --title "Chorale $VERSION" \
+              --notes "Télécharger : chorale.apk (ci-dessous), puis l'installer sur le téléphone."
+          fi
+          echo "Lien direct : https://github.com/$GITHUB_REPOSITORY/releases/latest/download/chorale.apk" >> "$GITHUB_STEP_SUMMARY"

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
+import 'anniversaires.dart';
+import 'theme.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -20,6 +22,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = false;
   String? _photoBase64;
   bool _dataLoaded = false;
+
+  /// Anniversaire (collection `anniversaires`), chargé à l'ouverture.
+  int? _jourNaissance;
+  int? _moisNaissance;
+  bool _anniversaireModifie = false;
+
+  @override
+  void initState() {
+    super.initState();
+    lireAnniversaire(FirebaseAuth.instance.currentUser!.uid)
+        .then((a) {
+          if (mounted && a != null && !_anniversaireModifie) {
+            setState(() {
+              _jourNaissance = a.jour;
+              _moisNaissance = a.mois;
+            });
+          }
+        })
+        .catchError((_) {});
+  }
 
   @override
   void dispose() {
@@ -51,9 +73,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
-      final updateData = <String, dynamic>{
-        'Nom': _nomController.text.trim(),
-      };
+      final updateData = <String, dynamic>{'Nom': _nomController.text.trim()};
 
       if (_photoBase64 != null) {
         updateData['photoBase64'] = _photoBase64;
@@ -63,6 +83,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .collection('users')
           .doc(uid)
           .update(updateData);
+
+      // Anniversaire (et nom affiché dans la liste des anniversaires).
+      if (_anniversaireModifie || _jourNaissance != null) {
+        await enregistrerAnniversaire(
+          uid,
+          _nomController.text.trim(),
+          _jourNaissance,
+          _moisNaissance,
+        );
+      }
 
       // Changement de mot de passe si rempli
       if (_newPasswordController.text.isNotEmpty) {
@@ -95,8 +125,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           SnackBar(
             content: Text(switch (e.code) {
               'wrong-password' ||
-              'invalid-credential' =>
-                'Mot de passe actuel incorrect.',
+              'invalid-credential' => 'Mot de passe actuel incorrect.',
               'requires-recent-login' =>
                 'Par sécurité, déconnectez-vous puis reconnectez-vous '
                     'avant de changer ce paramètre.',
@@ -112,7 +141,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceAll('Exception: ', '')),
+            content: Text(
+              e is FirebaseException && e.code == 'permission-denied'
+                  ? 'Enregistrement refusé par les règles de sécurité '
+                        'Firebase. Prévenez le responsable.'
+                  : e is FirebaseException && e.code == 'unavailable'
+                  ? 'Pas de connexion internet.'
+                  : e.toString().replaceAll('Exception: ', ''),
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -127,13 +163,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final uid = FirebaseAuth.instance.currentUser!.uid;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mon profil'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: const Text('Mon profil')),
       body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(uid)
+            .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
@@ -160,15 +195,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       CircleAvatar(
                         radius: 60,
-                        backgroundColor: Colors.deepPurple.shade100,
+                        backgroundColor: CouleursChorale.lavandeFonce,
                         backgroundImage: _photoBase64 != null
                             ? MemoryImage(base64Decode(_photoBase64!))
                             : (existingPhoto != null
-                                ? MemoryImage(base64Decode(existingPhoto))
-                                : null) as ImageProvider?,
+                                      ? MemoryImage(base64Decode(existingPhoto))
+                                      : null)
+                                  as ImageProvider?,
                         child: (_photoBase64 == null && existingPhoto == null)
-                            ? const Icon(Icons.person,
-                                size: 60, color: Colors.deepPurple)
+                            ? const Icon(
+                                Icons.person,
+                                size: 60,
+                                color: CouleursChorale.aubergine,
+                              )
                             : null,
                       ),
                       Positioned(
@@ -177,11 +216,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(6),
                           decoration: const BoxDecoration(
-                            color: Colors.deepPurple,
+                            color: CouleursChorale.aubergine,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.camera_alt,
-                              color: Colors.white, size: 18),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                            size: 18,
+                          ),
                         ),
                       ),
                     ],
@@ -203,10 +245,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
+                ChampAnniversaire(
+                  jour: _jourNaissance,
+                  mois: _moisNaissance,
+                  onChange: (jour, mois) => setState(() {
+                    _jourNaissance = jour;
+                    _moisNaissance = mois;
+                    _anniversaireModifie = true;
+                  }),
+                ),
+                const SizedBox(height: 12),
 
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 16,
+                  ),
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey.shade400),
                     borderRadius: BorderRadius.circular(4),
@@ -241,11 +296,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     prefixIcon: const Icon(Icons.lock_outlined),
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
-                      icon: Icon(_obscureCurrentPassword
-                          ? Icons.visibility_off
-                          : Icons.visibility),
-                      onPressed: () => setState(() =>
-                          _obscureCurrentPassword = !_obscureCurrentPassword),
+                      icon: Icon(
+                        _obscureCurrentPassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                      ),
+                      onPressed: () => setState(
+                        () =>
+                            _obscureCurrentPassword = !_obscureCurrentPassword,
+                      ),
                     ),
                   ),
                 ),
@@ -259,11 +318,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     prefixIcon: const Icon(Icons.lock_outline),
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
-                      icon: Icon(_obscureNewPassword
-                          ? Icons.visibility_off
-                          : Icons.visibility),
+                      icon: Icon(
+                        _obscureNewPassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                      ),
                       onPressed: () => setState(
-                          () => _obscureNewPassword = !_obscureNewPassword),
+                        () => _obscureNewPassword = !_obscureNewPassword,
+                      ),
                     ),
                   ),
                 ),
@@ -275,7 +337,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _saveProfile,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
+                      backgroundColor: CouleursChorale.aubergine,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -283,8 +345,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     child: _isLoading
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Enregistrer',
-                            style: TextStyle(fontSize: 16)),
+                        : const Text(
+                            'Enregistrer',
+                            style: TextStyle(fontSize: 16),
+                          ),
                   ),
                 ),
               ],
