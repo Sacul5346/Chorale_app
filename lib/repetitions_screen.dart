@@ -7,6 +7,7 @@ import 'anniversaires.dart';
 import 'membres_du_mois_screen.dart';
 import 'parametres.dart';
 import 'parametres_screen.dart';
+import 'pointage.dart' show intentionDe;
 import 'presence_screen.dart';
 import 'profile_screen.dart';
 import 'statistiques_screen.dart';

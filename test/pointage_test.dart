@@ -3,6 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:chorale_app/badge.dart';
 import 'package:chorale_app/parametres.dart';
 import 'package:chorale_app/pointage.dart';
+// Importé exprès avec pointage.dart : si une fonction du même nom
+// (intentionDe…) y était recréée, la compilation échouerait au lieu de
+// partir en récursion infinie sur les téléphones (bug de la 1.3.0).
+// ignore: unused_import
+import 'package:chorale_app/presence_screen.dart';
 
 void main() {
   group('membreDepuisQr', () {
@@ -117,6 +122,11 @@ void main() {
       statutAbsent(intention: '', excuseEnvoyee: false),
       'absent_sans_excuse',
     );
+  });
+
+  test('intentionDe ne boucle pas (récursion de la 1.3.0)', () {
+    expect(intentionDe(const {}), '');
+    expect(intentionDe({'intention': 'present'}), 'present');
   });
 
   test('lecture d’un document presences, ancien format compris', () {

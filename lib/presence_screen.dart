@@ -223,9 +223,6 @@ Future<void> enregistrerIntention(String repetitionId, String intention) async {
   }
 }
 
-/// Intention lue dans un document `presences` (ancien format compris).
-String intentionDe(Map<String, dynamic> data) => _intentionOf(data);
-
 // ----------------------------------------------------------
 // Carte "Ma présence" — pour le membre connecté
 // ----------------------------------------------------------
