@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'repetition_model.dart';
 import 'statistiques.dart';
 
-/// Statistiques de présence par voix et par membre (chef et responsable).
+/// Statistiques de présence par voix et par membre (chef et suppléant).
 class StatistiquesScreen extends StatefulWidget {
   const StatistiquesScreen({super.key});
 
@@ -189,7 +189,7 @@ class _StatistiquesScreenState extends State<StatistiquesScreen> {
       children: [
         Text(
           '${d.nbRepetitions} répétition(s) passée(s) sur la période. '
-          'Seules les présences marquées par le responsable comptent.',
+          'Seules les présences marquées par le chef comptent.',
           style: const TextStyle(color: Colors.grey, fontSize: 12),
         ),
         const SizedBox(height: 12),

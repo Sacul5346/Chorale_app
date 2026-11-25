@@ -9,6 +9,16 @@ import 'theme.dart';
 /// (nom, jour, mois, actif) : les membres peuvent la lire sans accéder aux
 /// fiches complètes (`users`). Pas d'année de naissance, par discrétion.
 
+bool _dateAnniversaireValide(int jour, int mois) {
+  if (mois < 1 || mois > 12 || jour < 1) return false;
+  final maxJour = switch (mois) {
+    2 => 29,
+    4 || 6 || 9 || 11 => 30,
+    _ => 31,
+  };
+  return jour <= maxJour;
+}
+
 class Anniversaire {
   final String uid;
   final String nom;
@@ -20,7 +30,7 @@ class Anniversaire {
   static Anniversaire? depuisDoc(String uid, Map<String, dynamic> d) {
     final jour = d['jour'], mois = d['mois'];
     if (d['actif'] == false || jour is! int || mois is! int) return null;
-    if (mois < 1 || mois > 12 || jour < 1 || jour > 31) return null;
+    if (!_dateAnniversaireValide(jour, mois)) return null;
     final nom = d['nom'] is String && (d['nom'] as String).trim().isNotEmpty
         ? (d['nom'] as String).trim()
         : 'Un membre';
@@ -66,12 +76,16 @@ CollectionReference<Map<String, dynamic>> get _collection =>
 
 Stream<List<Anniversaire>> ecouterAnniversaires() =>
     _collection.snapshots().map(
-      (s) => [for (final d in s.docs) ?Anniversaire.depuisDoc(d.id, d.data())],
+      (s) => s.docs
+          .map((d) => Anniversaire.depuisDoc(d.id, d.data()))
+          .whereType<Anniversaire>()
+          .toList(),
     );
 
 Future<({int jour, int mois})?> lireAnniversaire(String uid) async {
   final d = (await _collection.doc(uid).get()).data();
-  if (d == null || d['jour'] is! int || d['mois'] is! int) return null;
+  if (d == null || d['actif'] == false) return null;
+  if (d['jour'] is! int || d['mois'] is! int) return null;
   return (jour: d['jour'] as int, mois: d['mois'] as int);
 }
 

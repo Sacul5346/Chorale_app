@@ -1,14 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'login_screen.dart';
-import 'chef_screen.dart';
-import 'responsable_screen.dart';
+import 'gestion_screen.dart';
 import 'membre_screen.dart';
 import 'gestionnaire_paroles_screen.dart';
 import 'rappels.dart';
+import 'roles.dart';
 import 'theme.dart';
 import 'telechargement_web.dart'
     if (dart.library.io) 'telechargement_io.dart'
@@ -83,7 +85,7 @@ class AuthGate extends StatelessWidget {
             if (data == null) {
               return const _CompteBloque(
                 message:
-                    'Compte introuvable. Contactez le responsable '
+                    'Compte introuvable. Contactez le chef '
                     'de la chorale.',
                 effacerDonnees: true,
               );
@@ -92,25 +94,84 @@ class AuthGate extends StatelessWidget {
               return const _CompteBloque(
                 message:
                     'Votre compte a été désactivé. Contactez le '
-                    'responsable de la chorale.',
+                    'chef de la chorale.',
                 effacerDonnees: true,
               );
             }
 
-            final role = data['role'] as String? ?? 'membre';
-
-            return RappelsSync(
-              role: role,
-              child: switch (role) {
-                'chef' => const ChefScreen(),
-                'responsable' => const ResponsableScreen(),
-                'lyrics_manager' => const GestionnaireParolesScreen(),
-                _ => const MembreScreen(),
-              },
-            );
+            return _AccueilSelonRole(fiche: data);
           },
         );
       },
+    );
+  }
+}
+
+/// Choisit l'accueil selon le rôle et la suppléance. Une suppléance prend
+/// fin à son heure même si l'app reste ouverte (un minuteur reconstruit
+/// l'écran) ; les règles Firestore coupent l'accès au même moment.
+class _AccueilSelonRole extends StatefulWidget {
+  final Map<String, dynamic> fiche;
+  const _AccueilSelonRole({required this.fiche});
+
+  @override
+  State<_AccueilSelonRole> createState() => _AccueilSelonRoleState();
+}
+
+class _AccueilSelonRoleState extends State<_AccueilSelonRole> {
+  Timer? _finSuppleance;
+
+  @override
+  void initState() {
+    super.initState();
+    _programmerFin();
+  }
+
+  @override
+  void didUpdateWidget(_AccueilSelonRole ancien) {
+    super.didUpdateWidget(ancien);
+    _programmerFin();
+  }
+
+  void _programmerFin() {
+    _finSuppleance?.cancel();
+    final fin = finSuppleance(widget.fiche);
+    if (fin == null) return;
+    final reste = fin.difference(DateTime.now());
+    // Timer limité à ~24 j sur certaines plateformes : on se reprogramme.
+    if (reste > Duration.zero) {
+      final attente = reste < const Duration(days: 1)
+          ? reste
+          : const Duration(days: 1);
+      _finSuppleance = Timer(attente, () {
+        if (mounted) setState(_programmerFin);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _finSuppleance?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final role = roleNormalise(widget.fiche['role']);
+    final suppleant = estSuppleant(widget.fiche, DateTime.now());
+
+    return RappelsSync(
+      role: role,
+      child: role == 'chef'
+          ? const GestionScreen(estChef: true)
+          : suppleant
+          ? GestionScreen(
+              estChef: false,
+              finSuppleance: finSuppleance(widget.fiche),
+            )
+          : role == 'lyrics_manager'
+          ? const GestionnaireParolesScreen()
+          : const MembreScreen(),
     );
   }
 }

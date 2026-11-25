@@ -27,16 +27,20 @@ https://github.com/Sacul5346/Chorale_app/releases/latest/download/chorale.apk
 
 ## 1. Les rôles
 
-Chaque compte a un rôle, attribué par le responsable. L'écran d'accueil dépend du rôle.
+Chaque compte a un rôle, attribué par le chef. L'écran d'accueil dépend du rôle.
 
 | Rôle | Onglets | Peut en plus… |
 |---|---|---|
 | **Membre** | Répétitions · Chansons · Mes excuses | répondre aux répétitions, lire les paroles, écouter les playbacks |
 | **Gestionnaire de paroles** | Répétitions · Chansons · Mes excuses | ajouter/modifier les chansons, les paroles et les playbacks |
-| **Chef** | Répétitions · Chansons · Excuses | créer/générer/annuler les répétitions, voir le classement, régler les paramètres |
-| **Responsable** | Répétitions · Chansons · Membres · Messages | gérer les comptes, marquer les présences, répondre aux excuses, publier les membres du mois |
+| **Chef** | Répétitions · Chansons · Membres · Excuses | **tout** : répétitions, présences, excuses, chansons, paramètres, statistiques, membres du mois, et seul à gérer les comptes et les suppléances |
+| **Suppléant** *(provisoire)* | Répétitions · Chansons · Excuses | pendant l'absence du chef, tout ce que fait le chef **sauf** gérer les comptes |
 
 Le gestionnaire de paroles est aussi un choriste : il répond aux répétitions comme un membre.
+
+**Suppléance.** Quand le chef s'absente, il ouvre *Membres* › ⋮ sur un membre › *Nommer suppléant* et choisit le **dernier jour** de son absence. Jusqu'à la fin de ce jour, le membre a les pouvoirs du chef (un bandeau le lui rappelle), puis redevient automatiquement un simple membre. Le chef peut changer la date ou *Arrêter la suppléance* à tout moment.
+
+L'ancien rôle **responsable** n'existe plus : les comptes qui l'avaient sont traités comme des membres.
 
 ---
 
@@ -53,12 +57,18 @@ Le gestionnaire de paroles est aussi un choriste : il répond aux répétitions 
 ### Présences
 Deux informations distinctes pour chaque membre et chaque répétition :
 - **La réponse du membre**, donnée à l'avance : *Je viens* / *En retard* / *Absent*.
-- **La présence constatée** par le responsable : *à l'heure*, *en retard (avec / sans excuse)*, *absent (avec / sans excuse)*.
+- **La présence constatée** par le chef : *à l'heure*, *en retard (avec / sans excuse)*, *absent (avec / sans excuse)*.
 
-Le membre ne peut jamais modifier la présence constatée. Le responsable voit un **résumé des réponses par voix** (soprano, alto, ténor, basse).
+Le membre ne peut jamais modifier la présence constatée. Le chef voit un **résumé des réponses par voix** (soprano, alto, ténor, basse).
+
+### Badges et pointage par scan
+- **Badge imprimable** pour chaque membre (onglet *Membres* › ⋮ › *Imprimer le badge*, ou 🪪 pour tous) : logo, nom complet, voix, devise et un **QR code** propre au membre. Format carte bancaire horizontal, porté en collier (fente pour le cordon en haut), 8 par page A4, à découper. Proposé aussi juste après la création d'un compte.
+- **Pointage par scan** (chef, suppléant) : ouvrir la répétition › *Scanner les badges*. Chaque badge scanné marque le membre *Présent à l'heure*, ou *En retard* après l'heure de début + la tolérance (15 min par défaut, réglable dans les paramètres) — *avec excuse* s'il avait prévenu dans l'app. Son nom et sa photo s'affichent pour vérifier que c'est bien lui.
+- *Terminer* propose de marquer **absents** ceux qui n'ont pas été scannés (avec excuse s'ils avaient prévenu). Tout reste modifiable à la main dans le tableau.
+- Fonctionne **sans internet** : les pointages sont envoyés dès que le réseau revient.
 
 ### Excuses
-Pour chaque répétition, le membre peut écrire au responsable. Le responsable voit les nouveaux messages (badge « non lu ») et y répond. Le chef les consulte dans l'onglet *Excuses*.
+Pour chaque répétition, le membre peut écrire au chef. Le chef (ou son suppléant) voit les nouveaux messages dans l'onglet *Excuses* (badge « non lu ») et y répond.
 
 ### Chansons, paroles et playbacks
 - Liste par **région**, avec recherche.
@@ -67,9 +77,9 @@ Pour chaque répétition, le membre peut écrire au responsable. Le responsable 
 - **Playback** (fichier audio sur Google Drive) : sur téléphone, il est **téléchargé une fois** puis s'écoute **sans internet**. Il reste dans l'espace privé de l'app (invisible dans la galerie ou la musique, non partageable).
 
 ### Statistiques et membres du mois
-- **Statistiques** (chef, responsable) : taux de présence par voix et par membre, sur le mois, 3 mois ou l'année.
+- **Statistiques** (chef, suppléant) : taux de présence par voix et par membre, sur le mois, 3 mois ou l'année.
 - **Mon activité** (tous) : points, présences et détail de chaque répétition, mois par mois.
-- **Membres du mois** : à la fin du mois, le chef ou le responsable ouvre le **classement** (Femmes / Hommes), vérifie, puis **publie** les gagnants — **une femme et un homme**. Tout le monde voit les gagnants et l'historique.
+- **Membres du mois** : à la fin du mois, le chef (ou son suppléant) ouvre le **classement** (Femmes / Hommes), vérifie, puis **publie** les gagnants — **une femme et un homme**. Tout le monde voit les gagnants et l'historique.
 
 Points par défaut (modifiables dans les paramètres) :
 
@@ -88,16 +98,17 @@ Points par défaut (modifiables dans les paramètres) :
 - Chacun renseigne son **anniversaire** (jour et mois, sans l'année) dans *Mon profil*. Bandeau 🎂 le jour J et écran *Anniversaires*.
 - **Verset du jour** (Louis Segond 1910) affiché en haut des répétitions et notifié chaque matin.
 
-### Paramètres de la chorale (chef, responsable)
+### Paramètres de la chorale (chef, suppléant)
 Menu **⋮ › Paramètres de la chorale** — aucun changement de code nécessaire :
 - **Planning hebdomadaire** : jours, heures, lieux, créneaux « à confirmer ».
 - **Régions** des chansons.
 - **Heure du rappel** de répétition (la veille).
 - **Verset du jour** : activé ou non, heure d'envoi.
 - **Barème** des points d'activité.
+- **Tolérance de retard** du pointage par badge.
 
 ### Comptes
-- Création des comptes par le responsable (onglet *Membres*) : nom, email, mot de passe provisoire, rôle, voix, genre, anniversaire.
+- Création des comptes par le chef (onglet *Membres*) : nom, email, mot de passe provisoire, rôle, voix, genre, anniversaire.
 - **Désactivation** d'un compte (au lieu de la suppression) : la personne ne peut plus entrer, ses playbacks téléchargés et ses rappels sont effacés de son téléphone, son historique est conservé. Réactivation possible.
 - *Mot de passe oublié* sur l'écran de connexion.
 
@@ -111,16 +122,13 @@ Menu **⋮ › Paramètres de la chorale** — aucun changement de code nécessa
 3. *Chansons* › toucher une chanson › ▶️ pour télécharger et écouter le playback.
 4. Menu ⋮ › *Mon profil* : photo, nom, anniversaire, mot de passe.
 
-**Responsable**
-1. *Membres* › ➕ pour créer un compte ; ✏️ pour modifier rôle, voix, genre, anniversaire.
-2. Après la répétition : l'ouvrir et marquer la présence de chacun.
-3. *Messages* : lire et répondre aux excuses.
-4. En fin de mois : 🏆 › *Classement* › *Publier*.
-
-**Chef**
+**Chef** (et suppléant, sauf l'étape 6)
 1. ✨ *Générer les répétitions du mois* (ce mois-ci ou le mois prochain).
 2. ➕ *Répétition* pour une répétition exceptionnelle ; *Choisir dans la liste* pour les chansons.
 3. ⋮ sur une répétition : modifier, annuler (avec motif) ou supprimer.
+4. Après la répétition : l'ouvrir et marquer la présence de chacun.
+5. *Excuses* : lire et répondre ; en fin de mois : 🏆 › *Classement* › *Publier*.
+6. *Membres* › ➕ pour créer un compte ; ⋮ sur un membre pour modifier, nommer un suppléant ou désactiver.
 
 **Gestionnaire de paroles**
 1. *Chansons* › ✏️ sur une chanson : saisir les paroles, ajouter le lien du playback.
@@ -169,7 +177,7 @@ Les fichiers audio sont hébergés sur **Google Drive** (gratuit) ; l'app ne sto
 ### Installer sur un téléphone
 1. Ouvrir le lien de téléchargement (en haut de cette page) sur le téléphone.
 2. Ouvrir le fichier `chorale.apk` ; autoriser l'installation depuis cette source si Android le demande.
-3. Se connecter avec l'email et le mot de passe fournis par le responsable.
+3. Se connecter avec l'email et le mot de passe fournis par le chef.
 
 Les mises à jour s'installent **par-dessus** l'application existante.
 
@@ -223,10 +231,10 @@ flutter test
 
 | Collection | Contenu |
 |---|---|
-| `users/{uid}` | `Nom`, `email`, `role`, `voix`, `genre`, `actif`, `photoBase64` |
+| `users/{uid}` | `Nom`, `email`, `role`, `voix`, `genre`, `actif`, `photoBase64`, `suppleantJusquau` (fin de suppléance, écrit par le chef) |
 | `repetitions/{id}` | `titre`, `date` (à minuit), `heure` (texte), `lieu`, `raison`, `chansons` (une par ligne), `statut` (`actif` / `annulé`), `causeAnnulation` |
-| `presences/{id}` | `userId`, `repetitionId`, `intention` + `intentionAt` (réponse du membre), `statut` + `valideePar` + `confirmedAt` (constat du responsable) |
-| `conversations/{repId}_{membreId}` | dernier message, `unreadByResponsable` ; sous-collection `messages` |
+| `presences/{id}` | `userId`, `repetitionId`, `intention` + `intentionAt` (réponse du membre), `statut` + `valideePar` + `confirmedAt` (constat du chef ou du suppléant) |
+| `conversations/{repId}_{membreId}` | dernier message, `unreadByResponsable` (non lu par le chef ou le suppléant ; nom historique conservé) ; sous-collection `messages` |
 | `songs/{id}` | `title`, `artist`, `region`, `lyrics`, `playbackUrl` |
 | `parametres/chorale` | planning, régions, heures de rappel et du verset, barème |
 | `recompenses/{AAAA-MM}` | membres du mois publiés (`femmes`, `hommes`) |

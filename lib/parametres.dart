@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Réglages de la chorale, modifiables dans l'app par le chef et le
-/// responsable (écran « Paramètres de la chorale ») : on ne touche plus au
+import 'pointage.dart' show toleranceRetardParDefaut, choixToleranceRetard;
+
+/// Réglages de la chorale, modifiables dans l'app par le chef et son
+/// suppléant (écran « Paramètres de la chorale ») : on ne touche plus au
 /// code quand l'organisation change. Stockés dans `parametres/chorale`.
 /// Sans document enregistré, les valeurs par défaut ci-dessous s'appliquent.
 
@@ -85,6 +87,10 @@ class ParametresChorale {
   final bool versetActif;
   final int heureVerset;
 
+  /// Pointage par badge : minutes après l'heure de début avant d'être
+  /// compté en retard.
+  final int toleranceRetard;
+
   const ParametresChorale({
     required this.creneaux,
     required this.regions,
@@ -92,6 +98,7 @@ class ParametresChorale {
     required this.bareme,
     this.versetActif = true,
     this.heureVerset = 6,
+    this.toleranceRetard = toleranceRetardParDefaut,
   });
 
   /// Fonctionnement de l'app avant les paramètres.
@@ -137,6 +144,7 @@ class ParametresChorale {
         : defaut.regions;
     final heure = m['heureRappel'];
     final heureVerset = m['heureVerset'];
+    final tolerance = m['toleranceRetard'];
     final bareme = {...baremeParDefaut};
     if (m['bareme'] is Map) {
       (m['bareme'] as Map).forEach((k, v) {
@@ -154,6 +162,10 @@ class ParametresChorale {
       heureVerset: heureVerset is int && heureVerset >= 0 && heureVerset <= 23
           ? heureVerset
           : 6,
+      toleranceRetard:
+          tolerance is int && choixToleranceRetard.contains(tolerance)
+          ? tolerance
+          : toleranceRetardParDefaut,
     );
   }
 
@@ -164,6 +176,7 @@ class ParametresChorale {
     'bareme': bareme,
     'versetActif': versetActif,
     'heureVerset': heureVerset,
+    'toleranceRetard': toleranceRetard,
   };
 
   ParametresChorale copie({
@@ -173,6 +186,7 @@ class ParametresChorale {
     Map<String, int>? bareme,
     bool? versetActif,
     int? heureVerset,
+    int? toleranceRetard,
   }) => ParametresChorale(
     creneaux: creneaux ?? this.creneaux,
     regions: regions ?? this.regions,
@@ -180,6 +194,7 @@ class ParametresChorale {
     bareme: bareme ?? this.bareme,
     versetActif: versetActif ?? this.versetActif,
     heureVerset: heureVerset ?? this.heureVerset,
+    toleranceRetard: toleranceRetard ?? this.toleranceRetard,
   );
 
   static DocumentReference<Map<String, dynamic>> get _doc =>

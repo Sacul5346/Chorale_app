@@ -128,7 +128,7 @@ class _SelecteurMois extends StatelessWidget {
 // Mon activité (historique d'un membre)
 // ----------------------------------------------------------
 class MonActiviteScreen extends StatefulWidget {
-  /// Membre affiché : soi-même par défaut (le chef et le responsable
+  /// Membre affiché : soi-même par défaut (le chef et son suppléant
   /// peuvent ouvrir l'historique de n'importe quel membre).
   final String? userId;
   final String? nom;
@@ -303,7 +303,7 @@ class _MonActiviteScreenState extends State<MonActiviteScreen> {
 // Membres du mois (gagnants publiés, visibles par tous)
 // ----------------------------------------------------------
 class MembresDuMoisScreen extends StatelessWidget {
-  /// Chef et responsable : accès au classement et à la publication.
+  /// Chef et suppléant : accès au classement et à la publication.
   final bool peutGerer;
 
   const MembresDuMoisScreen({super.key, this.peutGerer = false});
@@ -441,7 +441,7 @@ class _CarteRecompense extends StatelessWidget {
 }
 
 // ----------------------------------------------------------
-// Classement du mois et publication (chef, responsable)
+// Classement du mois et publication (chef, suppléant)
 // ----------------------------------------------------------
 class _Classement {
   final Map<String, ActiviteMembre> activite;

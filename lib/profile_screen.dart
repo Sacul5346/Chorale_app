@@ -144,7 +144,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             content: Text(
               e is FirebaseException && e.code == 'permission-denied'
                   ? 'Enregistrement refusé par les règles de sécurité '
-                        'Firebase. Prévenez le responsable.'
+                        'Firebase. Prévenez le chef.'
                   : e is FirebaseException && e.code == 'unavailable'
                   ? 'Pas de connexion internet.'
                   : e.toString().replaceAll('Exception: ', ''),

@@ -17,7 +17,7 @@ class RepetitionPassee {
 class LigneActivite {
   final RepetitionPassee repetition;
 
-  /// Présence constatée par le responsable ('' si non marquée).
+  /// Présence constatée par le chef ('' si non marquée).
   final String statut;
   final bool reponduALavance;
   final int points;
@@ -127,7 +127,7 @@ List<ActiviteMembre> gagnants(Iterable<ActiviteMembre> activites) {
   return tries.where((a) => comparerActivite(a, tries.first) == 0).toList();
 }
 
-/// Genre proposé d'après la voix (le responsable peut le corriger).
+/// Genre proposé d'après la voix (le chef peut le corriger).
 String? genreSelonVoix(Object? voix) => switch (voix) {
   'soprano' || 'alto' => 'femme',
   'tenor' || 'basse' => 'homme',

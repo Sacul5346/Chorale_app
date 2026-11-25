@@ -19,7 +19,7 @@ class RepetitionsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gestion = role == 'chef' || role == 'responsable';
+    final gestion = role == 'chef'; // chef ou suppléant
     return Scaffold(
       appBar: AppBar(
         title: const Text('Répétitions'),
@@ -235,6 +235,8 @@ class RepetitionsScreen extends StatelessWidget {
       role: role,
       chansons: rep.chansons,
       raison: rep.raison,
+      date: rep.date,
+      heure: rep.heure,
     ),
   );
 

@@ -5,11 +5,7 @@ import 'conversation_screen.dart';
 import 'theme.dart';
 
 class MessagesScreen extends StatelessWidget {
-  /// Le chef consulte les excuses sans les marquer comme lues : le badge
-  /// « non lu » reste pour le responsable, qui y répond.
-  final bool marquerLu;
-
-  const MessagesScreen({super.key, this.marquerLu = true});
+  const MessagesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -136,12 +132,12 @@ class MessagesScreen extends StatelessWidget {
                                   color: Colors.grey,
                                 ),
                           onTap: () async {
-                            // Marquer comme lu par le responsable
-                            if (marquerLu) {
-                              await conv.reference.update({
-                                'unreadByResponsable': false,
-                              });
-                            }
+                            // Marquer comme lu par la direction (chef ou
+                            // suppléant). Le nom du champ est conservé pour
+                            // les données existantes.
+                            await conv.reference.update({
+                              'unreadByResponsable': false,
+                            });
 
                             if (context.mounted) {
                               Navigator.push(

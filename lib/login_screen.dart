@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'logo.dart';
 import 'theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -111,21 +112,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Column(
                   children: [
-                    // Emblème
-                    Container(
-                      width: 96,
-                      height: 96,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: CouleursChorale.or, width: 2),
-                        color: Colors.white.withValues(alpha: 0.06),
-                      ),
-                      child: const Icon(
-                        Icons.queue_music,
-                        size: 48,
-                        color: CouleursChorale.or,
-                      ),
-                    ),
+                    // Logo officiel de la chorale
+                    const LogoKtkfa(taille: 140),
                     const SizedBox(height: 20),
                     // Nom de la chorale
                     const Text(

@@ -1,6 +1,6 @@
 /// Calcul des statistiques de présence (sans Firestore, pour être testable).
 ///
-/// Seule la présence **constatée par le responsable** (`statut`) compte ;
+/// Seule la présence **constatée par le chef** (`statut`) compte ;
 /// l'intention annoncée par le membre n'entre pas dans les statistiques.
 library;
 
@@ -11,7 +11,7 @@ class StatPresence {
   int absencesExcusees = 0;
   int absencesSansExcuse = 0;
 
-  /// Répétitions passées où le responsable n'a rien marqué.
+  /// Répétitions passées où le chef n'a rien marqué.
   int nonMarquees = 0;
 
   int get retards => retardsExcuses + retardsSansExcuse;

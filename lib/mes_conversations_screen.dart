@@ -37,7 +37,7 @@ class MesConversationsScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Ouvre une répétition et envoie\nune excuse au responsable',
+                    'Ouvre une répétition et envoie\nune excuse au chef',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.grey, fontSize: 12),
                   ),

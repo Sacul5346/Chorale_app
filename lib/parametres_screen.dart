@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'parametres.dart';
+import 'pointage.dart' show choixToleranceRetard;
 import 'theme.dart';
 
-/// Réglages de la chorale (chef et responsable) : planning hebdomadaire,
+/// Réglages de la chorale (chef et suppléant) : planning hebdomadaire,
 /// régions des chansons, heure du rappel, barème des points d'activité.
 class ParametresScreen extends StatefulWidget {
   const ParametresScreen({super.key});
@@ -194,6 +195,29 @@ class _ParametresScreenState extends State<ParametresScreen> {
                         ),
                       ],
                     ),
+                  const SizedBox(height: 24),
+                  _section(
+                    Icons.qr_code_scanner,
+                    'Pointage par badge',
+                    'Au scan, un membre arrivé après l’heure de début plus '
+                        'cette tolérance est compté en retard.',
+                  ),
+                  Row(
+                    children: [
+                      const Text('Tolérance : '),
+                      DropdownButton<int>(
+                        value: p.toleranceRetard,
+                        items: [
+                          for (final m in choixToleranceRetard)
+                            DropdownMenuItem(
+                              value: m,
+                              child: Text(m == 0 ? 'aucune' : '$m min'),
+                            ),
+                        ],
+                        onChanged: (m) => _maj(p.copie(toleranceRetard: m)),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 24),
                   _section(
                     Icons.emoji_events,

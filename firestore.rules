@@ -5,7 +5,14 @@ rules_version = '2';
 // Compatibles avec toutes les versions de l'app, y compris l'ancienne 1.0.0
 // (qui range la réponse du membre dans `statut` : voir « Présences »).
 //
-// Rôles : chef, responsable, lyrics_manager, membre (défaut).
+// Rôles : chef (pouvoir absolu), lyrics_manager, membre (défaut).
+// L'ancien rôle « responsable » ne donne plus aucun droit (= membre).
+//
+// Suppléance : pendant une absence, le chef inscrit sur la fiche d'un membre
+// `suppleantJusquau` (date de fin). Jusqu'à cette date, le suppléant a les
+// pouvoirs de gestion du chef, SAUF la gestion des comptes (création,
+// rôles, désactivation, suppléances), réservée au chef.
+//
 // Un compte avec actif == false n'a plus accès à rien, sauf à sa propre fiche
 // (pour que l'app puisse lui afficher « compte désactivé »).
 service cloud.firestore {
@@ -28,9 +35,19 @@ service cloud.firestore {
     function role() {
       return moi().get('role', 'membre');
     }
-    // Chef et responsable : gestion de la chorale.
+    // Pouvoir absolu : seul le chef gère les comptes.
+    function chef() {
+      return actif() && role() == 'chef';
+    }
+    // Suppléant du chef, tant que sa date de fin n'est pas passée.
+    function suppleant() {
+      return actif() && role() != 'chef'
+        && moi().get('suppleantJusquau', null) is timestamp
+        && request.time < moi().suppleantJusquau;
+    }
+    // Chef ou suppléant : gestion de la chorale (hors comptes).
     function gestionnaire() {
-      return actif() && role() in ['chef', 'responsable'];
+      return chef() || suppleant();
     }
     function modifieSeulement(champs) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(champs);
@@ -39,15 +56,16 @@ service cloud.firestore {
     // ---------- Membres ----------
     match /users/{userId} {
       // Sa propre fiche : toujours lisible (même désactivé).
-      // Les autres fiches (photos, emails) : chef et responsable seulement.
+      // Les autres fiches (photos, emails) : chef et suppléant seulement.
       allow read: if connecte() && (request.auth.uid == userId || gestionnaire());
 
-      // Création / suppression de comptes : chef et responsable.
-      allow create, delete: if gestionnaire();
+      // Création / suppression de comptes : chef seulement.
+      allow create, delete: if chef();
 
-      // Chef et responsable modifient tout ; chacun peut changer son nom et
-      // sa photo, mais JAMAIS son rôle, sa voix ou son statut actif.
-      allow update: if gestionnaire()
+      // Le chef modifie tout (rôles, suppléances…) ; chacun peut changer son
+      // nom et sa photo, mais JAMAIS son rôle, sa voix, son statut actif ni
+      // sa suppléance.
+      allow update: if chef()
         || (actif() && request.auth.uid == userId
             && modifieSeulement(['Nom', 'photoBase64']));
     }
@@ -62,8 +80,8 @@ service cloud.firestore {
     // Réponse du membre : `intention` (app récente) ou `statut` contenant
     // present | absent | retard (ancienne app 1.0.0).
     // Présence constatée (present_heure, absent_excuse…) : chef et
-    // responsable uniquement. Un membre ne peut JAMAIS modifier une présence
-    // déjà validée par le responsable.
+    // suppléant uniquement. Un membre ne peut JAMAIS modifier une présence
+    // déjà validée.
     match /presences/{presenceId} {
       function estReponse(valeur) {
         return valeur in ['present', 'absent', 'retard'];
@@ -129,7 +147,7 @@ service cloud.firestore {
     // ---------- Chansons, paroles et playbacks ----------
     match /songs/{songId} {
       allow read: if actif();
-      allow write: if actif() && role() in ['chef', 'responsable', 'lyrics_manager'];
+      allow write: if gestionnaire() || (actif() && role() == 'lyrics_manager');
     }
 
     // ---------- Paramètres de la chorale (planning, régions, rappel, barème) ----------
@@ -145,7 +163,7 @@ service cloud.firestore {
     }
 
     // ---------- Anniversaires (nom + jour/mois, lisibles par tous) ----------
-    // Chacun gère le sien ; chef et responsable peuvent gérer ceux de tous.
+    // Chacun gère le sien ; chef et suppléant peuvent gérer ceux de tous.
     match /anniversaires/{uid} {
       allow read: if actif();
       allow write: if gestionnaire() || (actif() && request.auth.uid == uid);

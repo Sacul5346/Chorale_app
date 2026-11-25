@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'conversation_screen.dart';
 import 'lyrics_view_screen.dart';
+import 'pointage.dart';
+import 'scan_presence_screen.dart';
 import 'theme.dart';
 
 class PresenceScreen extends StatelessWidget {
@@ -12,6 +14,11 @@ class PresenceScreen extends StatelessWidget {
   final String chansons;
   final String raison;
 
+  /// Date (à minuit) et heure texte de la répétition : servent au pointage
+  /// par badge (à l'heure ou en retard).
+  final DateTime? date;
+  final String heure;
+
   const PresenceScreen({
     super.key,
     required this.repetitionId,
@@ -19,14 +26,34 @@ class PresenceScreen extends StatelessWidget {
     required this.role,
     this.chansons = '',
     this.raison = '',
+    this.date,
+    this.heure = '',
   });
 
   @override
   Widget build(BuildContext context) {
-    final canManage = role == 'responsable' || role == 'chef';
-    final canEdit = role == 'responsable'; // seul le responsable peut modifier
+    // Le chef (ou son suppléant, qui reçoit le rôle « chef ») voit et
+    // modifie les présences de tous.
+    final canManage = role == 'chef';
 
     return Scaffold(
+      floatingActionButton: canManage
+          ? FloatingActionButton.extended(
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('Scanner les badges'),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ScanPresenceScreen(
+                    repetitionId: repetitionId,
+                    repetitionTitre: repetitionTitre,
+                    date: date,
+                    heure: heure,
+                  ),
+                ),
+              ),
+            )
+          : null,
       appBar: AppBar(
         title: Text(repetitionTitre),
         actions: [
@@ -82,19 +109,19 @@ class PresenceScreen extends StatelessWidget {
 
           const Divider(height: 1),
 
-          // Tableau des présences (visible par responsable et chef)
+          // Tableau des présences (chef et suppléant)
           if (canManage)
             Expanded(
               child: _AllPresencesTable(
                 repetitionId: repetitionId,
-                canEdit: canEdit,
+                canEdit: canManage,
               ),
             )
           else
             const Expanded(
               child: Center(
                 child: Text(
-                  'Seul le responsable peut voir les présences de tous.',
+                  'Seul le chef peut voir les présences de tous.',
                   style: TextStyle(color: Colors.grey),
                   textAlign: TextAlign.center,
                 ),
@@ -109,24 +136,11 @@ class PresenceScreen extends StatelessWidget {
 // ----------------------------------------------------------
 // Présence : deux informations séparées dans chaque document
 //  - `intention` : ce que le membre annonce (present | absent | retard)
-//  - `statut`    : ce que le responsable constate (present_heure, ...)
+//  - `statut`    : ce que le chef constate (present_heure, ...)
 // ----------------------------------------------------------
-const _intentions = ['present', 'absent', 'retard'];
+String _intentionOf(Map<String, dynamic> data) => intentionDe(data);
 
-/// Intention annoncée par le membre. Les anciens documents la stockaient
-/// dans `statut` : on la relit à cet endroit si besoin.
-String _intentionOf(Map<String, dynamic> data) {
-  final intention = data['intention'];
-  if (intention is String) return intention;
-  final ancien = data['statut'];
-  return _intentions.contains(ancien) ? ancien as String : '';
-}
-
-/// Présence constatée par le responsable (vide si pas encore marquée).
-String _statutOf(Map<String, dynamic> data) {
-  final statut = data['statut'];
-  return statut is String && !_intentions.contains(statut) ? statut : '';
-}
+String _statutOf(Map<String, dynamic> data) => statutConstateDe(data);
 
 String _intentionLabel(String intention) {
   switch (intention) {
@@ -179,7 +193,7 @@ Color _statusColor(String statut) {
 }
 
 /// Enregistre la réponse du membre connecté (present | absent | retard) à
-/// une répétition. N'écrit jamais le `statut` validé par le responsable.
+/// une répétition. N'écrit jamais le `statut` validé par le chef.
 /// Utilisée ici et depuis la liste des répétitions.
 Future<void> enregistrerIntention(String repetitionId, String intention) async {
   final uid = FirebaseAuth.instance.currentUser!.uid;
@@ -203,7 +217,7 @@ Future<void> enregistrerIntention(String repetitionId, String intention) async {
       'intention': intention,
       'intentionAt': FieldValue.serverTimestamp(),
       // Ancien format : l'intention était rangée dans `statut`.
-      if (_intentions.contains(doc.data()['statut']))
+      if (intentionsMembre.contains(doc.data()['statut']))
         'statut': FieldValue.delete(),
     });
   }
@@ -220,7 +234,7 @@ class _MyPresenceCard extends StatelessWidget {
   const _MyPresenceCard({required this.repetitionId});
 
   /// Le membre n'écrit que son intention : il ne touche jamais au `statut`
-  /// validé par le responsable.
+  /// validé par le chef.
   Future<void> _setIntention(String intention) =>
       enregistrerIntention(repetitionId, intention);
 
@@ -258,7 +272,7 @@ class _MyPresenceCard extends StatelessWidget {
               if (statut.isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
-                  'Constaté par le responsable : ${_statusLabel(statut)}',
+                  'Constaté par le chef : ${_statusLabel(statut)}',
                   style: TextStyle(
                     color: _statusColor(statut),
                     fontWeight: FontWeight.w500,
@@ -348,7 +362,7 @@ class _StatusButton extends StatelessWidget {
 }
 
 // ----------------------------------------------------------
-// Tableau de toutes les présences — pour responsable / chef
+// Tableau de toutes les présences — pour le chef et son suppléant
 // ----------------------------------------------------------
 class _AllPresencesTable extends StatefulWidget {
   final String repetitionId;
@@ -402,7 +416,8 @@ class _AllPresencesTableState extends State<_AllPresencesTable> {
                 .toList();
 
             return ListView.builder(
-              padding: const EdgeInsets.all(12),
+              // Marge du bas : le bouton « Scanner les badges » ne cache rien.
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
               itemCount: users.length + 1,
               itemBuilder: (context, index) {
                 if (index == 0) {
@@ -481,7 +496,7 @@ class _AllPresencesTableState extends State<_AllPresencesTable> {
                           ],
                         ),
 
-                        // Boutons d'action (responsable uniquement)
+                        // Boutons d'action (chef et suppléant)
                         if (widget.canEdit) ...[
                           const SizedBox(height: 10),
                           const Divider(height: 1),
