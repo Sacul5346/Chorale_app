@@ -5,10 +5,18 @@ import 'package:chorale_app/association_playbacks.dart';
 void main() {
   group('normaliserNom', () {
     test('fichiers : extension, numéro de piste, accents, ponctuation', () {
-      expect(normaliserNom('03 - Ry Tompo ô !.mp3', fichier: true), 'ry tompo o');
-      expect(normaliserNom('Fiderana_Anao.M4A', fichier: true), 'fiderana anao');
-      expect(normaliserNom('12. Hira   Fisaorana.wav', fichier: true),
-          'hira fisaorana');
+      expect(
+        normaliserNom('03 - Ry Tompo ô !.mp3', fichier: true),
+        'ry tompo o',
+      );
+      expect(
+        normaliserNom('Fiderana_Anao.M4A', fichier: true),
+        'fiderana anao',
+      );
+      expect(
+        normaliserNom('12. Hira   Fisaorana.wav', fichier: true),
+        'hira fisaorana',
+      );
     });
 
     test('titres : l’extension n’est pas retirée', () {
@@ -24,11 +32,14 @@ void main() {
   test('idDossierDrive', () {
     expect(
       idDossierDrive(
-          'https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOp?usp=sharing'),
+        'https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOp?usp=sharing',
+      ),
       '1AbCdEfGhIjKlMnOp',
     );
     expect(
-      idDossierDrive('https://drive.google.com/drive/u/0/folders/1AbCdEfGhIjKlMnOp'),
+      idDossierDrive(
+        'https://drive.google.com/drive/u/0/folders/1AbCdEfGhIjKlMnOp',
+      ),
       '1AbCdEfGhIjKlMnOp',
     );
     expect(idDossierDrive('https://www.youtube.com/watch?v=abc'), isNull);
@@ -37,8 +48,16 @@ void main() {
   group('associer', () {
     final chansons = [
       const ChansonExistante('s1', 'Ry Tompo Ô'),
-      const ChansonExistante('s2', 'Fiderana', 'https://drive.google.com/file/d/ancien/view'),
-      const ChansonExistante('s3', 'Hira Fisaorana', 'https://drive.google.com/file/d/f3/view'),
+      const ChansonExistante(
+        's2',
+        'Fiderana',
+        'https://drive.google.com/file/d/ancien/view',
+      ),
+      const ChansonExistante(
+        's3',
+        'Hira Fisaorana',
+        'https://drive.google.com/file/d/f3/view',
+      ),
       const ChansonExistante('s4', 'Doublon'),
       const ChansonExistante('s5', 'doublon !'),
       const ChansonExistante('s6', 'Sans fichier'),
@@ -70,6 +89,33 @@ void main() {
     test('fichiers sans chanson et noms ambigus', () {
       expect(r.fichiersSansChanson.map((f) => f.nom), ['Chanson inconnue.mp3']);
       expect(r.ambigus, ['Doublon.mp3']);
+    });
+  });
+
+  group('choisir le playback d’une chanson dans le dossier', () {
+    test('ressemblance', () {
+      expect(ressemblance('Ry Tompo ô', '03 - Ry Tompo o.mp3'), 100);
+      expect(ressemblance('Ry Tompo', 'Ry Tompo ô mihaino ahy.m4a'), 80);
+      expect(ressemblance('Haleloia Amen', 'amen version 2.mp3'), 30);
+      expect(ressemblance('Ry Tompo', 'Salamo 23.mp3'), 0);
+      expect(ressemblance('', 'x.mp3'), 0);
+    });
+
+    test('le plus ressemblant en premier, puis alphabétique', () {
+      const fichiers = [
+        FichierDrive('a', 'Zanahary.mp3'),
+        FichierDrive('b', 'Alleluia.mp3'),
+        FichierDrive('c', '05 - Ry Tompo ô.mp3'),
+      ];
+      expect(trierPourChanson(fichiers, 'Ry Tompo o').map((f) => f.id), [
+        'c',
+        'b',
+        'a',
+      ]);
+      expect(
+        ressemblance('Ry Tompo o', fichiers[2].nom),
+        greaterThanOrEqualTo(seuilSuggestion),
+      );
     });
   });
 }

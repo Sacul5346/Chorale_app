@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'association_playbacks.dart';
 import 'parametres.dart';
 import 'playback.dart';
 import 'theme.dart';
@@ -45,71 +46,102 @@ class _LyricsEditorScreenState extends State<LyricsEditorScreen> {
     final dossier = (await ParametresChorale.charger()).dossierPlaybacks;
     if (!mounted) return;
 
+    final titre = widget.songData['title'] is String
+        ? widget.songData['title'] as String
+        : '';
+
     final resultat = await showDialog<String>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('Playback (Google Drive)'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _DossierPlaybacks(lien: dossier),
-                const SizedBox(height: 14),
-                const Text(
-                  'Dans l’application Google Drive, sur le fichier audio :\n'
-                  '1. ⋮ puis « Partager » (ou « Gérer l’accès »)\n'
-                  '2. Accès général : « Tous les utilisateurs disposant du '
-                  'lien »\n'
-                  '3. « Copier le lien », puis collez-le ci-dessous.',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: controller,
-                  decoration: InputDecoration(
-                    labelText: 'Lien Google Drive',
-                    border: const OutlineInputBorder(),
-                    errorText: erreur,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Conseil : un fichier léger (moins de 3 Mo) se charge plus '
-                  'vite pour les membres.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            if (_playback.isNotEmpty)
-              TextButton(
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                onPressed: () => Navigator.pop(dialogContext, ''),
-                child: const Text('Supprimer'),
+        builder: (dialogContext, setDialogState) {
+          /// Choix du fichier dans un dossier : le lien du fichier choisi
+          /// devient le playback.
+          Future<void> choisir(String lienDossier) async {
+            final fichier = await showDialog<FichierDrive>(
+              context: dialogContext,
+              builder: (_) => _ChoixFichierDrive(
+                idDossier: idDossierDrive(lienDossier)!,
+                titreChanson: titre,
               ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Annuler'),
+            );
+            if (fichier != null && dialogContext.mounted) {
+              Navigator.pop(dialogContext, lienFichierDrive(fichier.id));
+            }
+          }
+
+          return AlertDialog(
+            title: const Text('Playback (Google Drive)'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _DossierPlaybacks(
+                    lien: dossier,
+                    onChoisir: dossier.isEmpty ? null : () => choisir(dossier),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Ou collez ci-dessous le lien d’un fichier audio Google '
+                    'Drive, ou d’un dossier (vous choisirez ensuite le '
+                    'fichier). Le fichier doit être partagé à « Tous les '
+                    'utilisateurs disposant du lien ».',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    decoration: InputDecoration(
+                      labelText: 'Lien Google Drive',
+                      border: const OutlineInputBorder(),
+                      errorText: erreur,
+                      errorMaxLines: 6,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Conseil : un fichier léger (moins de 3 Mo) se charge plus '
+                    'vite pour les membres.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
             ),
-            ElevatedButton(
-              onPressed: () {
-                final lien = controller.text.trim();
-                if (idFichierDrive(lien) == null) {
-                  setDialogState(
-                    () => erreur =
-                        'Ce n’est pas un lien de fichier Google Drive.',
-                  );
-                  return;
-                }
-                Navigator.pop(dialogContext, lien);
-              },
-              child: const Text('Enregistrer'),
-            ),
-          ],
-        ),
+            actions: [
+              if (_playback.isNotEmpty)
+                TextButton(
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  onPressed: () => Navigator.pop(dialogContext, ''),
+                  child: const Text('Supprimer'),
+                ),
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final lien = controller.text.trim();
+                  // Lien de dossier : on choisit le fichier dedans.
+                  if (idFichierDrive(lien) == null &&
+                      idDossierDrive(lien) != null) {
+                    choisir(lien);
+                    return;
+                  }
+                  if (idFichierDrive(lien) == null) {
+                    setDialogState(
+                      () => erreur =
+                          'Ce n’est pas un lien Google Drive de fichier ou '
+                          'de dossier.',
+                    );
+                    return;
+                  }
+                  Navigator.pop(dialogContext, lien);
+                },
+                child: const Text('Enregistrer'),
+              ),
+            ],
+          );
+        },
       ),
     );
     controller.dispose();
@@ -293,7 +325,10 @@ class _LyricsEditorScreenState extends State<LyricsEditorScreen> {
 /// de la fenêtre d'ajout : on y choisit le fichier, on copie son lien.
 class _DossierPlaybacks extends StatelessWidget {
   final String lien;
-  const _DossierPlaybacks({required this.lien});
+
+  /// Ouvre la liste des fichiers du dossier (null si pas de dossier).
+  final VoidCallback? onChoisir;
+  const _DossierPlaybacks({required this.lien, this.onChoisir});
 
   Future<void> _ouvrir(BuildContext context) async {
     var ok = false;
@@ -360,7 +395,17 @@ class _DossierPlaybacks extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
+          if (onChoisir != null)
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                icon: const Icon(Icons.library_music, size: 18),
+                label: const Text('Choisir dans le dossier'),
+                onPressed: onChoisir,
+              ),
+            ),
+          const SizedBox(height: 6),
           SelectableText(
             lien,
             maxLines: 2,
@@ -388,6 +433,134 @@ class _DossierPlaybacks extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Liste des fichiers audio d'un dossier Drive pour choisir le playback
+/// d'une chanson. Les noms qui ressemblent au titre sont proposés en tête.
+class _ChoixFichierDrive extends StatefulWidget {
+  final String idDossier;
+  final String titreChanson;
+  const _ChoixFichierDrive({
+    required this.idDossier,
+    required this.titreChanson,
+  });
+
+  @override
+  State<_ChoixFichierDrive> createState() => _ChoixFichierDriveState();
+}
+
+class _ChoixFichierDriveState extends State<_ChoixFichierDrive> {
+  late final Future<List<FichierDrive>> _fichiers = fichiersAudioDuDossier(
+    widget.idDossier,
+  ).then((f) => trierPourChanson(f, widget.titreChanson));
+  String _recherche = '';
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Choisir le playback'),
+      contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: MediaQuery.sizeOf(context).height * 0.6,
+        child: FutureBuilder<List<FichierDrive>>(
+          future: _fichiers,
+          builder: (context, snap) {
+            if (snap.hasError) {
+              final e = snap.error;
+              return Center(
+                child: Text(
+                  e is DriveException ? e.message : 'Erreur : $e',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              );
+            }
+            if (!snap.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final tous = snap.data!;
+            if (tous.isEmpty) {
+              return const Center(
+                child: Text(
+                  'Aucun fichier audio dans ce dossier.',
+                  textAlign: TextAlign.center,
+                ),
+              );
+            }
+            final cle = normaliserNom(_recherche);
+            final visibles = cle.isEmpty
+                ? tous
+                : tous
+                      .where(
+                        (f) =>
+                            normaliserNom(f.nom, fichier: true).contains(cle),
+                      )
+                      .toList();
+            return Column(
+              children: [
+                if (widget.titreChanson.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'Pour « ${widget.titreChanson} »',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                TextField(
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: 'Rechercher un fichier',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (t) => setState(() => _recherche = t),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: visibles.isEmpty
+                      ? const Center(child: Text('Aucun fichier trouvé.'))
+                      : ListView.builder(
+                          itemCount: visibles.length,
+                          itemBuilder: (_, i) {
+                            final f = visibles[i];
+                            final suggere =
+                                ressemblance(widget.titreChanson, f.nom) >=
+                                seuilSuggestion;
+                            return ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(
+                                suggere ? Icons.star : Icons.audiotrack,
+                                color: suggere
+                                    ? CouleursChorale.or
+                                    : CouleursChorale.aubergineClair,
+                              ),
+                              title: Text(f.nom),
+                              subtitle: suggere
+                                  ? const Text(
+                                      'Suggéré : nom proche du titre',
+                                      style: TextStyle(fontSize: 11),
+                                    )
+                                  : null,
+                              onTap: () => Navigator.pop(context, f),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Annuler'),
+        ),
+      ],
     );
   }
 }

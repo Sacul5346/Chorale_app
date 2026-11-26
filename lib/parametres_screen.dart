@@ -459,6 +459,7 @@ class _ParametresScreenState extends State<ParametresScreen> {
                   labelText: 'Lien du dossier',
                   border: const OutlineInputBorder(),
                   errorText: erreur,
+                  errorMaxLines: 3,
                 ),
               ),
             ],

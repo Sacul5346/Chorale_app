@@ -216,3 +216,32 @@ Future<List<FichierDrive>> fichiersAudioDuDossier(String idDossier) async {
   } while (pageSuivante != null);
   return fichiers;
 }
+
+/// Ressemblance entre le titre d'une chanson et un nom de fichier, de 0 à
+/// 100 : 100 = même nom, 80 = l'un contient l'autre, sinon la part des mots
+/// du titre retrouvés dans le nom (au plus 60).
+int ressemblance(String titre, String nomFichier) {
+  final t = normaliserNom(titre);
+  final f = normaliserNom(nomFichier, fichier: true);
+  if (t.isEmpty || f.isEmpty) return 0;
+  if (t == f) return 100;
+  if (f.contains(t) || t.contains(f)) return 80;
+  final motsTitre = t.split(' ').where((m) => m.length > 1).toSet();
+  if (motsTitre.isEmpty) return 0;
+  final motsFichier = f.split(' ').toSet();
+  final communs = motsTitre.intersection(motsFichier).length;
+  return communs * 60 ~/ motsTitre.length;
+}
+
+/// Seuil à partir duquel un fichier est proposé comme « Suggéré ».
+const seuilSuggestion = 50;
+
+/// Fichiers du dossier pour choisir le playback d'une chanson : les plus
+/// ressemblants au titre d'abord, puis par ordre alphabétique.
+List<FichierDrive> trierPourChanson(List<FichierDrive> fichiers, String titre) {
+  final scores = {for (final f in fichiers) f.id: ressemblance(titre, f.nom)};
+  return [...fichiers]..sort((a, b) {
+    final s = scores[b.id]!.compareTo(scores[a.id]!);
+    return s != 0 ? s : a.nom.toLowerCase().compareTo(b.nom.toLowerCase());
+  });
+}

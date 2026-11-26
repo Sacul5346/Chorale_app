@@ -111,7 +111,7 @@ Menu **⋮ › Paramètres de la chorale** — aucun changement de code nécessa
 - **Verset du jour** : activé ou non, heure d'envoi.
 - **Barème** des points d'activité.
 - **Tolérance de retard** du pointage par badge.
-- **Dossier des playbacks** : lien du dossier Google Drive, affiché (avec *Ouvrir* / *Copier*) quand on ajoute un playback, et pré-rempli dans *Associer les playbacks*.
+- **Dossier des playbacks** : lien du dossier Google Drive. Quand on ajoute un playback à une chanson : **Choisir dans le dossier** (liste des fichiers audio, le nom proche du titre proposé en premier ★) ; un lien de dossier collé ouvre aussi cette liste. Pré-rempli dans *Associer les playbacks*.
 
 ### Comptes
 - Création des comptes par le chef (onglet *Membres*) : nom, email, mot de passe provisoire, rôle, voix, genre, anniversaire.
