@@ -35,8 +35,9 @@ class _MembreScreenState extends State<MembreScreen> {
             icon: Icon(Icons.music_note),
             label: 'Chansons',
           ),
+          // Badge : réponses du chef pas encore lues.
           BottomNavigationBarItem(
-            icon: Icon(Icons.message),
+            icon: IconeMesExcuses(),
             label: 'Mes excuses',
           ),
         ],

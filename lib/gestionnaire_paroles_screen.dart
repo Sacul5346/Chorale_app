@@ -40,8 +40,9 @@ class _GestionnaireParolesScreenState extends State<GestionnaireParolesScreen> {
             icon: Icon(Icons.library_music),
             label: 'Chansons',
           ),
+          // Badge : réponses du chef pas encore lues.
           BottomNavigationBarItem(
-            icon: Icon(Icons.message),
+            icon: IconeMesExcuses(),
             label: 'Mes excuses',
           ),
         ],

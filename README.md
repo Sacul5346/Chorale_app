@@ -68,11 +68,16 @@ Le membre ne peut jamais modifier la présence constatée. Le chef voit un **ré
 - Fonctionne **sans internet** : les pointages sont envoyés dès que le réseau revient.
 
 ### Excuses
-Pour chaque répétition, le membre peut écrire au chef. Le chef (ou son suppléant) voit les nouveaux messages dans l'onglet *Excuses* (badge « non lu ») et y répond.
+Pour chaque répétition, le membre peut écrire au chef (répétition › 💬).
+- **Chef / suppléant** (onglet *Excuses*) : excuses **regroupées par répétition**, filtre *Tous / Non lus*, réponse du membre rappelée en haut de la conversation. Réponses rapides et bouton **« Accepter l'excuse »** : réponse automatique et, si le membre avait annoncé son absence, présence enregistrée *absent avec excuse*.
+- **Membre** (onglet *Mes excuses*) : badge et pastille quand le chef a répondu.
+- Bulles avec l'heure, séparateurs de jour, « Vu ✓✓ ».
+- **Supprimer** : appui long sur un de ses messages (il devient « Message supprimé ») ; le chef peut supprimer une conversation (appui long) et effacer d'un coup celles des répétitions supprimées (🧹).
 
 ### Chansons, paroles et playbacks
 - Liste par **région**, avec recherche.
-- **Lecture des paroles** pour tous : texte centré, taille réglable (A− / A+), **mode scène** (fond noir).
+- **Lecture des paroles** pour tous : en-tête qui se replie, **strophes** séparées (couplets numérotés, **refrain** mis en valeur), un seul panneau de commandes en bas (playback, défilement, A− / A+, **mode scène** fond noir), taille du texte aussi en pinçant à deux doigts.
+- **Saisie des paroles** : séparer les strophes par une ligne vide ; une strophe qui commence par « Fiverenany », « Fiv. », « Refrain » ou « Réf. » est le refrain ; « Fiv. » seul = reprise du refrain. Le chef (⋮ › *Paroles et playback*) et le gestionnaire de paroles (✏️) peuvent modifier les paroles.
 - **Défilement automatique** : au rythme du playback, ou à vitesse réglable. Toucher le texte met en pause.
 - **Playback** (fichier audio sur Google Drive) : sur téléphone, il est **téléchargé une fois** puis s'écoute **sans internet**. Il reste dans l'espace privé de l'app (invisible dans la galerie ou la musique, non partageable).
 

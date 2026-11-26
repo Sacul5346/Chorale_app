@@ -136,9 +136,16 @@ service cloud.firestore {
         allow create: if (gestionnaire() || (actif() && estMaConversation()))
           && request.resource.data.senderId == request.auth.uid;
 
-        // Seul le champ « lu » peut changer (message lu par l'autre personne).
+        // Deux modifications possibles :
+        //  - « lu » (message lu par l'autre personne) ;
+        //  - suppression par SON auteur : texte vidé et `supprime` à true
+        //    (le message devient « Message supprimé », rien d'autre ne change).
         allow update: if (gestionnaire() || (actif() && estMaConversation()))
-          && modifieSeulement(['lu']);
+          && (modifieSeulement(['lu'])
+              || (resource.data.senderId == request.auth.uid
+                  && modifieSeulement(['texte', 'supprime'])
+                  && request.resource.data.texte == ''
+                  && request.resource.data.supprime == true));
 
         allow delete: if gestionnaire();
       }
