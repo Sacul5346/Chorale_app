@@ -91,6 +91,10 @@ class ParametresChorale {
   /// compté en retard.
   final int toleranceRetard;
 
+  /// Lien du dossier Google Drive où sont rangés les playbacks : affiché
+  /// quand on ajoute un playback à une chanson ('' : pas encore défini).
+  final String dossierPlaybacks;
+
   const ParametresChorale({
     required this.creneaux,
     required this.regions,
@@ -99,6 +103,7 @@ class ParametresChorale {
     this.versetActif = true,
     this.heureVerset = 6,
     this.toleranceRetard = toleranceRetardParDefaut,
+    this.dossierPlaybacks = '',
   });
 
   /// Fonctionnement de l'app avant les paramètres.
@@ -145,6 +150,7 @@ class ParametresChorale {
     final heure = m['heureRappel'];
     final heureVerset = m['heureVerset'];
     final tolerance = m['toleranceRetard'];
+    final dossier = m['dossierPlaybacks'];
     final bareme = {...baremeParDefaut};
     if (m['bareme'] is Map) {
       (m['bareme'] as Map).forEach((k, v) {
@@ -166,6 +172,7 @@ class ParametresChorale {
           tolerance is int && choixToleranceRetard.contains(tolerance)
           ? tolerance
           : toleranceRetardParDefaut,
+      dossierPlaybacks: dossier is String ? dossier.trim() : '',
     );
   }
 
@@ -177,6 +184,7 @@ class ParametresChorale {
     'versetActif': versetActif,
     'heureVerset': heureVerset,
     'toleranceRetard': toleranceRetard,
+    'dossierPlaybacks': dossierPlaybacks,
   };
 
   ParametresChorale copie({
@@ -187,6 +195,7 @@ class ParametresChorale {
     bool? versetActif,
     int? heureVerset,
     int? toleranceRetard,
+    String? dossierPlaybacks,
   }) => ParametresChorale(
     creneaux: creneaux ?? this.creneaux,
     regions: regions ?? this.regions,
@@ -195,6 +204,7 @@ class ParametresChorale {
     versetActif: versetActif ?? this.versetActif,
     heureVerset: heureVerset ?? this.heureVerset,
     toleranceRetard: toleranceRetard ?? this.toleranceRetard,
+    dossierPlaybacks: dossierPlaybacks ?? this.dossierPlaybacks,
   );
 
   static DocumentReference<Map<String, dynamic>> get _doc =>

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import 'parametres.dart';
 import 'playback.dart';
 import 'theme.dart';
 
@@ -38,6 +41,9 @@ class _LyricsEditorScreenState extends State<LyricsEditorScreen> {
   Future<void> _editerPlayback() async {
     final controller = TextEditingController(text: _playback);
     String? erreur;
+    // Lien fixe du dossier des playbacks (réglé par le chef).
+    final dossier = (await ParametresChorale.charger()).dossierPlaybacks;
+    if (!mounted) return;
 
     final resultat = await showDialog<String>(
       context: context,
@@ -49,6 +55,8 @@ class _LyricsEditorScreenState extends State<LyricsEditorScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _DossierPlaybacks(lien: dossier),
+                const SizedBox(height: 14),
                 const Text(
                   'Dans l’application Google Drive, sur le fichier audio :\n'
                   '1. ⋮ puis « Partager » (ou « Gérer l’accès »)\n'
@@ -274,6 +282,109 @@ class _LyricsEditorScreenState extends State<LyricsEditorScreen> {
                     : const Text('Sauvegarder les lyrics'),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Lien fixe du dossier Google Drive des playbacks, toujours affiché en haut
+/// de la fenêtre d'ajout : on y choisit le fichier, on copie son lien.
+class _DossierPlaybacks extends StatelessWidget {
+  final String lien;
+  const _DossierPlaybacks({required this.lien});
+
+  Future<void> _ouvrir(BuildContext context) async {
+    var ok = false;
+    try {
+      ok = await launchUrl(
+        Uri.parse(lien),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      ok = false;
+    }
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible d’ouvrir le lien.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (lien.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: CouleursChorale.lavande,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.info_outline, size: 18),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Le chef peut enregistrer le lien du dossier des playbacks '
+                'dans ⋮ › Paramètres de la chorale.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 6),
+      decoration: BoxDecoration(
+        color: CouleursChorale.lavande,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: CouleursChorale.lavandeFonce),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.folder_shared,
+                size: 18,
+                color: CouleursChorale.aubergine,
+              ),
+              SizedBox(width: 6),
+              Text(
+                'Dossier des playbacks',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          SelectableText(
+            lien,
+            maxLines: 2,
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+          Wrap(
+            spacing: 4,
+            children: [
+              TextButton.icon(
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: const Text('Ouvrir le dossier'),
+                onPressed: () => _ouvrir(context),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.copy, size: 18),
+                label: const Text('Copier'),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: lien));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Lien du dossier copié')),
+                  );
+                },
+              ),
+            ],
           ),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'association_playbacks.dart' show idDossierDrive;
 import 'parametres.dart';
 import 'pointage.dart' show choixToleranceRetard;
 import 'theme.dart';
@@ -145,6 +146,34 @@ class _ParametresScreenState extends State<ParametresScreen> {
                         onPressed: () => _ajouterRegion(p),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 24),
+                  _section(
+                    Icons.folder_shared_outlined,
+                    'Dossier des playbacks',
+                    'Dossier Google Drive où sont rangés les playbacks. Son '
+                        'lien apparaît quand on ajoute un playback.',
+                  ),
+                  Card(
+                    margin: EdgeInsets.zero,
+                    child: ListTile(
+                      leading: Icon(
+                        p.dossierPlaybacks.isEmpty
+                            ? Icons.link_off
+                            : Icons.folder,
+                        color: CouleursChorale.aubergine,
+                      ),
+                      title: Text(
+                        p.dossierPlaybacks.isEmpty
+                            ? 'Pas encore défini'
+                            : p.dossierPlaybacks,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      trailing: const Icon(Icons.edit_outlined),
+                      onTap: () => _modifierDossier(p),
+                    ),
                   ),
                   const SizedBox(height: 24),
                   _section(
@@ -401,6 +430,72 @@ class _ParametresScreenState extends State<ParametresScreen> {
     }
     liste.sort((a, b) => a.jour.compareTo(b.jour));
     _maj(p.copie(creneaux: liste));
+  }
+
+  /// Lien du dossier Drive des playbacks (vide = retirer).
+  Future<void> _modifierDossier(ParametresChorale p) async {
+    final controller = TextEditingController(text: p.dossierPlaybacks);
+    String? erreur;
+    final lien = await showDialog<String>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, setDialogState) => AlertDialog(
+          title: const Text('Dossier des playbacks'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Dans Google Drive, sur le dossier : « Partager », accès '
+                '« Tous les utilisateurs disposant du lien », puis « Copier '
+                'le lien ».',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Lien du dossier',
+                  border: const OutlineInputBorder(),
+                  errorText: erreur,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            if (p.dossierPlaybacks.isNotEmpty)
+              TextButton(
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                onPressed: () => Navigator.pop(c, ''),
+                child: const Text('Retirer'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final texte = controller.text.trim();
+                if (idDossierDrive(texte) == null) {
+                  setDialogState(
+                    () => erreur =
+                        'Ce n’est pas un lien de dossier Google Drive '
+                        '(il doit contenir « /folders/ »).',
+                  );
+                  return;
+                }
+                Navigator.pop(c, texte);
+              },
+              child: const Text('Valider'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (lien == null || lien == p.dossierPlaybacks) return;
+    _maj(p.copie(dossierPlaybacks: lien));
   }
 
   Future<void> _ajouterRegion(ParametresChorale p) async {

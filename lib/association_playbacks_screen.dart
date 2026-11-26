@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import 'association_playbacks.dart';
+import 'parametres.dart';
 
 /// Relie en une fois les playbacks d'un dossier Google Drive aux chansons
 /// du même nom (pour le gestionnaire de paroles).
@@ -24,6 +25,17 @@ class _AssociationPlaybacksScreenState
 
   /// Correspondances cochées (par id de chanson).
   final _coches = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    // Pré-rempli avec le dossier des playbacks réglé par le chef.
+    ParametresChorale.charger().then((p) {
+      if (mounted && _lienController.text.isEmpty) {
+        _lienController.text = p.dossierPlaybacks;
+      }
+    });
+  }
 
   @override
   void dispose() {
