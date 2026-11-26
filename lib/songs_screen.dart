@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'lyrics_editor_screen.dart';
 import 'lyrics_view_screen.dart';
 import 'parametres.dart';
 import 'profile_screen.dart';
@@ -241,12 +242,39 @@ class _SongsScreenState extends State<SongsScreen> {
           '${aDesParoles ? '' : '\nParoles pas encore disponibles'}',
         ),
         isThreeLine: !aDesParoles,
+        // Chef (et suppléant) : paroles, playback, suppression.
+        // onSelected plutôt que onTap : l'éditeur s'ouvre une fois le menu
+        // refermé (sinon la fermeture du menu peut annuler l'ouverture).
         trailing: widget.role == 'chef'
-            ? PopupMenuButton(
-                itemBuilder: (context) => [
+            ? PopupMenuButton<String>(
+                tooltip: 'Actions',
+                onSelected: (choix) => choix == 'paroles'
+                    ? Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => LyricsEditorScreen(
+                            songId: songId,
+                            songData: songData,
+                          ),
+                        ),
+                      )
+                    : _deleteSong(songId),
+                itemBuilder: (context) => const [
                   PopupMenuItem(
-                    child: const Text('Supprimer'),
-                    onTap: () => _deleteSong(songId),
+                    value: 'paroles',
+                    child: ListTile(
+                      leading: Icon(Icons.edit_note),
+                      title: Text('Paroles et playback'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'supprimer',
+                    child: ListTile(
+                      leading: Icon(Icons.delete_outline, color: Colors.red),
+                      title: Text('Supprimer'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
                   ),
                 ],
               )
@@ -354,6 +382,30 @@ class _SongsScreenState extends State<SongsScreen> {
   }
 
   Future<void> _deleteSong(String songId) async {
+    // Les paroles et le lien du playback partent avec la chanson.
+    final confirme = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Supprimer cette chanson ?'),
+        content: const Text(
+          'Ses paroles et son playback seront aussi supprimés. '
+          'Cette action est définitive.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirme != true) return;
+
     try {
       await FirebaseFirestore.instance.collection('songs').doc(songId).delete();
       if (mounted) {

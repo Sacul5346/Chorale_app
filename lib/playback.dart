@@ -62,7 +62,20 @@ class PlaybackBar extends StatefulWidget {
   final void Function(Duration position, Duration total, bool enLecture)?
   onProgression;
 
-  const PlaybackBar({super.key, required this.lienDrive, this.onProgression});
+  /// Intégrée dans un autre panneau (paroles) : pas de fond ni de marge
+  /// d'écran propres.
+  final bool integre;
+
+  /// Couleur des commandes et du texte (mode scène : clair sur sombre).
+  final Color? couleur;
+
+  const PlaybackBar({
+    super.key,
+    required this.lienDrive,
+    this.onProgression,
+    this.integre = false,
+    this.couleur,
+  });
 
   @override
   State<PlaybackBar> createState() => _PlaybackBarState();
@@ -297,53 +310,50 @@ class _PlaybackBarState extends State<PlaybackBar> {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: CouleursChorale.lavande,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_progression != null) _barreTelechargement() else _lecteur(),
-              if (_cheminLocal != null && _progression == null)
-                Row(
-                  children: [
-                    const SizedBox(width: 12),
-                    const Icon(
-                      Icons.offline_pin,
-                      size: 16,
-                      color: Colors.green,
-                    ),
-                    const SizedBox(width: 4),
-                    const Expanded(
-                      child: Text(
-                        'Sur ce téléphone : écoute possible sans internet',
-                        style: TextStyle(fontSize: 12, color: Colors.green),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _supprimerFichier,
-                      child: const Text(
-                        'Supprimer',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              if (_erreur != null)
-                Padding(
-                  padding: const EdgeInsets.only(left: 12, bottom: 4),
+    final contenu = Padding(
+      padding: widget.integre
+          ? EdgeInsets.zero
+          : const EdgeInsets.fromLTRB(8, 4, 8, 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_progression != null) _barreTelechargement() else _lecteur(),
+          if (_cheminLocal != null && _progression == null)
+            Row(
+              children: [
+                const SizedBox(width: 12),
+                const Icon(Icons.offline_pin, size: 16, color: Colors.green),
+                const SizedBox(width: 4),
+                const Expanded(
                   child: Text(
-                    _erreur!,
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                    'Sur ce téléphone : écoute possible sans internet',
+                    style: TextStyle(fontSize: 12, color: Colors.green),
                   ),
                 ),
-            ],
-          ),
-        ),
+                TextButton(
+                  onPressed: _supprimerFichier,
+                  child: const Text(
+                    'Supprimer',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          if (_erreur != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 12, bottom: 4),
+              child: Text(
+                _erreur!,
+                style: const TextStyle(color: Colors.red, fontSize: 12),
+              ),
+            ),
+        ],
       ),
+    );
+    if (widget.integre) return contenu;
+    return Material(
+      color: CouleursChorale.lavande,
+      child: SafeArea(top: false, child: contenu),
     );
   }
 
@@ -403,7 +413,7 @@ class _PlaybackBarState extends State<PlaybackBar> {
                 etat?.processingState != ProcessingState.completed;
             return IconButton(
               iconSize: 36,
-              color: CouleursChorale.aubergine,
+              color: widget.couleur ?? CouleursChorale.aubergine,
               tooltip: enLecture ? 'Pause' : 'Écouter le playback',
               icon: Icon(
                 enLecture
@@ -442,7 +452,7 @@ class _PlaybackBarState extends State<PlaybackBar> {
                   ),
                   Text(
                     '${_duree(position)} / ${_duree(total)}',
-                    style: const TextStyle(fontSize: 12),
+                    style: TextStyle(fontSize: 12, color: widget.couleur),
                   ),
                   const SizedBox(width: 8),
                 ],
